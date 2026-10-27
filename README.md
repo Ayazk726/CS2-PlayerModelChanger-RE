@@ -24,7 +24,7 @@ This project is a derivative work based on [CS2-PlayerModelChanger](https://gith
   - [Configuration](#configuration)
     - [Files](#files)
     - [PlayerModelChanger-RE.json](#playermodelchanger-rejson)
-    - [How to configure a model?](#how-to-configure-a-model)
+    - [How to configure a model](#how-to-configure-a-model)
     - [MeshGroups.json](#meshgroupsjson)
     - [DefaultModels.json](#defaultmodelsjson)
     - [Storage](#storage)
@@ -70,7 +70,7 @@ This project is a derivative work based on [CS2-PlayerModelChanger](https://gith
    ```text
    game/csgo/addons/counterstrikesharp/configs/plugins/PlayerModelChanger-RE/PlayerModelChanger-RE.json
    ```
-5. Add your models to `Models` (see [How to configure a model?](#how-to-configure-a-model)).
+5. Add your models to `Models` (see [How to configure a model](#how-to-configure-a-model)).
 
 ### Automatic meshgroup catalogue
 
@@ -184,7 +184,7 @@ counterstrikesharp/
 
 | Key | Default | Description |
 |---|---|---|
-| `Models` | `{}` | The models the player may pick, see [How to configure a model?](#how-to-configure-a-model). |
+| `Models` | `{}` | The models the player may pick, see [How to configure a model](#how-to-configure-a-model). |
 | `StorageType` | `sqlite` | `sqlite` or `mysql`. |
 | `MySQL_*` | — | MySQL connection settings, only used when `StorageType` is `mysql`. |
 | `ModelForBots` | `{CT:[],T:[]}` | Model indices bots get per side; an empty list leaves bots alone. |
@@ -205,7 +205,7 @@ counterstrikesharp/
 | `AutoResyncCache` | `false` | Reload the storage cache on every spawn. |
 | `ConfigVersion` | `1` | Managed by CounterStrikeSharp. |
 
-### How to configure a model?
+### How to configure a model
 
 A simple example:
 
@@ -359,4 +359,4 @@ The path should look like `characters/.../xxx.vmdl`.
 
 ### 3. Add the model to PlayerModelChanger-RE.json
 
-Add the configuration in `PlayerModelChanger-RE.json` (see [How to configure a model?](#how-to-configure-a-model)), then run `!modeladmin reload` or restart the plugin.
+Add the configuration in `PlayerModelChanger-RE.json` (see [How to configure a model](#how-to-configure-a-model)), then run `!modeladmin reload` or restart the plugin.
