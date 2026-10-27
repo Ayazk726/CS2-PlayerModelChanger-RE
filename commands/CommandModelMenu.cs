@@ -503,7 +503,14 @@ public partial class PlayerModelChanger
     {
         if (!player.IsValid) return;
 
-        ApplyMeshgroupToggle(menu, item, player, currentModel, radio, opradio, combination);
+        // Picking the component that is already equipped keeps it equipped and
+        // the menu open; only a real change puts the model on again and shows
+        // the inspection camera.
+        if (!ApplyMeshgroupToggle(menu, item, player, currentModel, radio, opradio, combination))
+        {
+            RefreshMeshgroupMenuMarkers(menu, player, currentModel, radio, opradio, combination);
+            return;
+        }
 
         // The model is put on again with the new mesh groups, which shows it in
         // the inspection camera. The menu goes away for as long as the model is
@@ -515,17 +522,24 @@ public partial class PlayerModelChanger
         // cs2menus re-renders the menu after every pick, no display call needed.
     }
 
-    private void ApplyMeshgroupToggle(Cs2Menu menu, int item, CCSPlayerController player,
+    /// <summary>
+    /// Applies the picked mesh group item. Returns false when the picked item is
+    /// already equipped, so the caller can keep the menu open instead of closing
+    /// the component.
+    /// </summary>
+    private bool ApplyMeshgroupToggle(Cs2Menu menu, int item, CCSPlayerController player,
         Model currentModel, bool radio, bool opradio, bool combination)
     {
         var info = menu.GetItemInfo(item);
         var parts = info.Split('|');
-        if (parts.Length != 2) return;
+        if (parts.Length != 2) return false;
         var type = parts[1];
+        var wasSelected = menu.GetItemText(item).StartsWith("★ ");
 
         if (type == "r") // radio (forced selected)
         {
-            if (!int.TryParse(parts[0], out var value)) return;
+            if (!int.TryParse(parts[0], out var value)) return false;
+            if (wasSelected) return false;
             Service.AddMeshgroupPreference(player, currentModel, value);
             // Deselect the previously selected sibling, if any.
             for (int i = 0; i < menu.ItemCount; i++)
@@ -537,60 +551,46 @@ public partial class PlayerModelChanger
                 if (!int.TryParse(sibParts[0], out var sibValue)) continue;
                 Service.RemoveMeshgroupPreference(player, currentModel, sibValue, false);
             }
+            return true;
         }
-        else if (type == "or") // optional radio (can deselect)
+        if (type == "or") // optional radio
         {
-            if (!int.TryParse(parts[0], out var value)) return;
-            var wasSelected = menu.GetItemText(item).StartsWith("★ ");
-            if (wasSelected)
+            if (!int.TryParse(parts[0], out var value)) return false;
+            if (wasSelected) return false;
+            Service.AddMeshgroupPreference(player, currentModel, value);
+            for (int i = 0; i < menu.ItemCount; i++)
             {
-                Service.RemoveMeshgroupPreference(player, currentModel, value);
+                if (i == item) continue;
+                var sibInfo = menu.GetItemInfo(i);
+                var sibParts = sibInfo.Split('|');
+                if (sibParts.Length != 2 || sibParts[1] != "or") continue;
+                if (!int.TryParse(sibParts[0], out var sibValue)) continue;
+                Service.RemoveMeshgroupPreference(player, currentModel, sibValue, false);
             }
-            else
-            {
-                Service.AddMeshgroupPreference(player, currentModel, value);
-                for (int i = 0; i < menu.ItemCount; i++)
-                {
-                    if (i == item) continue;
-                    var sibInfo = menu.GetItemInfo(i);
-                    var sibParts = sibInfo.Split('|');
-                    if (sibParts.Length != 2 || sibParts[1] != "or") continue;
-                    if (!int.TryParse(sibParts[0], out var sibValue)) continue;
-                    Service.RemoveMeshgroupPreference(player, currentModel, sibValue, false);
-                }
-            }
+            return true;
         }
-        else if (type == "m") // multi-select
+        if (type == "m") // multi-select
         {
-            if (!int.TryParse(parts[0], out var value)) return;
-            var wasSelected = menu.GetItemText(item).StartsWith("★ ");
-            if (wasSelected)
-            {
-                Service.RemoveMeshgroupPreference(player, currentModel, value);
-            }
-            else
-            {
-                Service.AddMeshgroupPreference(player, currentModel, value);
-            }
+            if (!int.TryParse(parts[0], out var value)) return false;
+            if (wasSelected) return false;
+            Service.AddMeshgroupPreference(player, currentModel, value);
+            return true;
         }
-        else if (type == "cr") // combination radio
+        if (type == "cr") // combination radio
         {
             var values = parts[0].Split(',').Select(int.Parse).ToList();
+            if (wasSelected) return false;
             Service.SetMeshgroupPreference(player, currentModel, values);
+            return true;
         }
-        else if (type == "cm") // combination multi
+        if (type == "cm") // combination multi
         {
             var values = parts[0].Split(',').Select(int.Parse).ToList();
-            var wasSelected = menu.GetItemText(item).StartsWith("★ ");
-            if (wasSelected)
-            {
-                foreach (var v in values) Service.RemoveMeshgroupPreference(player, currentModel, v, false);
-            }
-            else
-            {
-                foreach (var v in values) Service.AddMeshgroupPreference(player, currentModel, v, false);
-            }
+            if (wasSelected) return false;
+            foreach (var v in values) Service.AddMeshgroupPreference(player, currentModel, v, false);
+            return true;
         }
+        return false;
     }
 
     private void RefreshMeshgroupMenuMarkers(Cs2Menu menu, CCSPlayerController player,
