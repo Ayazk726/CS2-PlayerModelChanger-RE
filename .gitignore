@@ -2,3 +2,4 @@ obj/
 package.sh
 publish/
 build/
+tools/

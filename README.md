@@ -4,6 +4,8 @@ A CounterStrikeSharp plugin that lets players customize their model. It provides
 
 This project is a derivative work based on [CS2-PlayerModelChanger](https://github.com/samyycX/CS2-PlayerModelChanger). It uses Panorama-style menus, can generate meshgroup configuration automatically and has an improved model preview.
 
+中文文档：[README_CN.md](https://github.com/Ayazk726/CS2-PlayerModelChanger-RE/blob/master/README_CN.md)
+
 > [!CAUTION]
 > This plugin can cause a GSLT ban, use it at your own risk.
 
