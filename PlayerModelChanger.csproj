@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AssemblyName>PlayerModelChanger-RE</AssemblyName>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <BaseOutputPath>build\</BaseOutputPath>
+    <OutputPath>$(BaseOutputPath)Release\PlayerModelChanger-RE</OutputPath>
+    <!-- Override on the command line with /p:CsgoDir=... if your csgo folder lives elsewhere. -->
+    <CsgoDir Condition="'$(CsgoDir)' == ''">..\steamcmd\steamapps\common\Counter-Strike Global Offensive\game\csgo\</CsgoDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.374">
+      <IncludeAssets>compile</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="MySQLConnector" Version="2.3.7" />
+    <PackageReference Include="Dapper" Version="2.1.44" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- mm-cs2menus CSS bridge. Compile-only reference; the runtime dll lives at
+         <csgo>/addons/counterstrikesharp/shared/CounterStrikeSharp.Cs2Menus/.
+         Private=false means it is NOT copied into our plugin folder. -->
+    <Reference Include="CounterStrikeSharp.Cs2Menus">
+      <HintPath>$(CsgoDir)addons\counterstrikesharp\shared\CounterStrikeSharp.Cs2Menus\CounterStrikeSharp.Cs2Menus.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="lang\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
