@@ -246,14 +246,16 @@ counterstrikesharp/
   "DisableAutoCheck": false,
   "DisableMeshgroupDetection": false,
   "DisableAutoMeshgroupCatalogue": false,
-  "MeshgroupCatalogueWorkshopIds": ["vpkid"],
-  "MeshgroupCatalogueVpkDirs": [],
+  "MeshgroupCatalogueWorkshopIds": ["你的vpkid"],
+  "MeshgroupCatalogueVpkDirs": ["你的vpk所在路径"],
   "DisablePlayerSelection": false,
   "AutoResyncCache": false,
   "ConfigVersion": 1
 }
 ```
 更多配置可以参考https://github.com/samyycX/CS2-PlayerModelChanger/wiki/Models-Configuration
+> [!CAUTION]
+> 如果想让插件自动生成meshgroup配置请填写 MeshgroupCatalogueWorkshopIds（推荐）或 MeshgroupCatalogueVpkDirs。前者填写模型素材vpk的创意工坊id后者为指定扫描vpk的路径，两者都不填时不会进行自动生成操作。
 
 ### MeshGroups.json
 

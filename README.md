@@ -249,8 +249,8 @@ A simple example:
   "DisableAutoCheck": false,
   "DisableMeshgroupDetection": false,
   "DisableAutoMeshgroupCatalogue": false,
-  "MeshgroupCatalogueWorkshopIds": ["vpkid"],
-  "MeshgroupCatalogueVpkDirs": [],
+  "MeshgroupCatalogueWorkshopIds": ["your vpk id"],
+  "MeshgroupCatalogueVpkDirs": ["path to your vpk"],
   "DisablePlayerSelection": false,
   "AutoResyncCache": false,
   "ConfigVersion": 1
@@ -258,6 +258,9 @@ A simple example:
 ```
 
 For more configuration options see https://github.com/samyycX/CS2-PlayerModelChanger/wiki/Models-Configuration.
+
+> [!CAUTION]
+> To let the plugin generate the meshgroup configuration automatically, fill in `MeshgroupCatalogueWorkshopIds` (recommended) or `MeshgroupCatalogueVpkDirs`. The former is the workshop id of the VPK containing the model assets; the latter is the path to scan for VPKs. If neither is set, nothing is generated automatically.
 
 ### MeshGroups.json
 
