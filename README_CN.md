@@ -71,7 +71,7 @@
    game/csgo/addons/counterstrikesharp/configs/plugins/PlayerModelChanger-RE/PlayerModelChanger-RE.json
    ```
 
-6. 在 `Models` 里添加模型（见 [如何配置模型](#如何配置模型)）。
+6. 在 `Models` 里添加模型（见 [如何添加模型](#如何添加模型)）。
 
 ### 自动生成 meshgroup catalogue
 

@@ -72,7 +72,7 @@ This project is a derivative work based on [CS2-PlayerModelChanger](https://gith
    ```text
    game/csgo/addons/counterstrikesharp/configs/plugins/PlayerModelChanger-RE/PlayerModelChanger-RE.json
    ```
-5. Add your models to `Models` (see [How to configure a model](#how-to-configure-a-model)).
+5. Add your models to `Models` (see [Adding a model](#adding-a-model)).
 
 ### Automatic meshgroup catalogue
 
