@@ -360,4 +360,4 @@ dotnet build /p:CsgoDir="C:/path/to/game/csgo/"
 
 ### 3. 把模型加进 PlayerModelChanger-RE.json
 
-在 `PlayerModelChanger-RE.json` 里添加配置（见 [如何配置模型？](#如何配置模型？)），然后 `!modeladmin reload` 或重启插件。
+在 `PlayerModelChanger-RE.json` 里添加配置（见 [如何配置模型？](#如何配置模型)），然后 `!modeladmin reload` 或重启插件。
