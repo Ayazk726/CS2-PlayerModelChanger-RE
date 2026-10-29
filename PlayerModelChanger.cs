@@ -55,6 +55,11 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
     // in OnTick so that the models and the config file are only touched there.
     private int _catalogueRefreshPending;
 
+    // Bots keep the model they got for the whole map. Assigning a new random
+    // model (or skin) on every respawn makes clients stutter and can crash them,
+    // see the "bot respawn" crash reports of the original plugin.
+    private readonly ConcurrentDictionary<string, string> _botModelIndex = new();
+
     public bool Enable = true;
 
     public override void Load(bool hotReload)
@@ -124,6 +129,7 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
         RegisterListener<Listeners.OnMapEnd>(() =>
         {
             Service.ClearMapDefaultModel();
+            _botModelIndex.Clear();
         });
 
         Utils.InitializeLangPrefix();
@@ -513,31 +519,29 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
 
             if (player.IsBot)
             {
-                List<string> modelindexs = team == CsTeam.Terrorist ? Config.ModelForBots.T : Config.ModelForBots.CT;
-                if (modelindexs.Count() == 0)
+                var modelindex = PickBotModelIndex(player, team);
+                if (modelindex == null)
                 {
                     return HookResult.Continue;
                 }
-                var modelindex = modelindexs[Random.Shared.Next(modelindexs.Count)];
                 var botmodel = Service.GetModel(modelindex);
-                if (modelindex == "@random")
+                if (botmodel == null)
                 {
-                    // A bot gets a new random model on every spawn.
-                    Service.RollPickedModel(player.AuthorizedSteamID!.SteamId64!, Side.All, "@random");
-                    botmodel = Service.GetRandomModel(player);
-                }
-                if (botmodel != null)
-                {
-                    SetModelNextServerFrame(player, botmodel, botmodel.Disableleg);
-                }
-                else
-                {
+                    // The configured entry is invalid; forget the choice so the
+                    // next spawn can pick a valid one.
+                    _botModelIndex.TryRemove(BotKey(player, team), out _);
                     Server.NextFrame(() =>
                     {
-                        var originalRender = player.Pawn.Value!.Render;
-                        player.Pawn.Value.Render = Color.FromArgb(255, originalRender.R, originalRender.G, originalRender.B);
+                        if (player.IsValid && player.Pawn.Value != null)
+                        {
+                            var originalRender = player.Pawn.Value.Render;
+                            player.Pawn.Value.Render = Color.FromArgb(255, originalRender.R, originalRender.G, originalRender.B);
+                        }
                     });
+                    return HookResult.Continue;
                 }
+
+                SetBotModelNextServerFrame(player, botmodel);
                 return HookResult.Continue;
             }
 
@@ -603,6 +607,82 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
         }
 
         return HookResult.Continue;
+    }
+
+    private static string BotKey(CCSPlayerController player, CsTeam team)
+        => $"{(player.SteamID != 0 ? player.SteamID : (ulong)(player.Slot + 1))}_{(int)team}";
+
+    /// <summary>
+    /// The model a bot keeps for this map. A random entry is rolled once, so a
+    /// respawn does not switch the bot to another model: changing the model of a
+    /// bot on every respawn makes clients stutter and crash.
+    /// </summary>
+    private string? PickBotModelIndex(CCSPlayerController player, CsTeam team)
+    {
+        var entries = team == CsTeam.Terrorist ? Config.ModelForBots.T : Config.ModelForBots.CT;
+        if (entries.Count == 0) return null;
+
+        var key = BotKey(player, team);
+        if (_botModelIndex.TryGetValue(key, out var chosen)) return chosen;
+
+        var valid = entries.Where(entry => entry == "@random" || Service.GetModel(entry) != null).ToList();
+        if (valid.Count == 0) return null;
+
+        var modelindex = valid[Random.Shared.Next(valid.Count)];
+        if (modelindex == "@random")
+        {
+            var models = Service.GetAllModels();
+            if (models.Count == 0) return null;
+            modelindex = models[Random.Shared.Next(models.Count)].Index;
+        }
+
+        _botModelIndex[key] = modelindex;
+        return modelindex;
+    }
+
+    /// <summary>
+    /// Applies a model to a bot without the per-player skin and meshgroup storage
+    /// of the players. The skin only changes when the model fixes it, the
+    /// meshgroups are the default ones of the model.
+    /// </summary>
+    private void SetBotModelNextServerFrame(CCSPlayerController player, Model model)
+    {
+        Server.NextFrame(() =>
+        {
+            if (!player.IsValid || player.Pawn.Value == null || !player.Pawn.Value.IsValid)
+            {
+                return;
+            }
+
+            var pawn = player.Pawn.Value;
+            var originalRender = pawn.Render;
+
+            pawn.SetModel(model.Path);
+            pawn.Render = Color.FromArgb(model.Disableleg ? 254 : 255, originalRender.R, originalRender.G, originalRender.B);
+            Utilities.SetStateChanged(pawn, "CBaseModelEntity", "m_clrRender");
+
+            // A fixed skin is static and safe. A per-bot skin choice is not; it
+            // caused clients to stutter and crash when the bot respawned.
+            if (model.FixedSkin >= 0)
+            {
+                pawn.AcceptInput("Skin", pawn, pawn, model.FixedSkin.ToString());
+            }
+
+            var defaultMask = model.DefaultMeshgroupMask;
+            if (defaultMask.HasValue && defaultMask.Value != 0)
+            {
+                var sceneNode = pawn.CBodyComponent?.SceneNode;
+                if (sceneNode != null)
+                {
+                    var skeleton = sceneNode.GetSkeletonInstance();
+                    if (skeleton.ModelState.MeshGroupMask != defaultMask.Value)
+                    {
+                        skeleton.ModelState.MeshGroupMask = defaultMask.Value;
+                        Utilities.SetStateChanged(pawn, "CBaseEntity", "m_CBodyComponent");
+                    }
+                }
+            }
+        });
     }
 
     public Task SetModelNextServerFrame(CCSPlayerController player, Model? model, bool disableleg)
