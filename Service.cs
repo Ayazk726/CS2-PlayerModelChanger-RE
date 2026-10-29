@@ -498,7 +498,7 @@ public class ModelService
         if (update) MeshgroupUpdate(player);
     }
 
-    public void SetMeshgroupPreference(CCSPlayerController player, Model model, List<int> meshgroups)
+    public void SetMeshgroupPreference(CCSPlayerController player, Model model, List<int> meshgroups, bool update = true)
     {
         var old = new List<int>(GetMeshgroupPreference(player, model));
         old.Sort();
@@ -521,7 +521,7 @@ public class ModelService
         {
             AddMeshgroupPreference(player, model, meshgroup, false);
         }
-        MeshgroupUpdate(player);
+        if (update) MeshgroupUpdate(player);
     }
 
     public void RemoveMeshgroupPreference(CCSPlayerController player, Model model, int meshgroup, bool update = true)

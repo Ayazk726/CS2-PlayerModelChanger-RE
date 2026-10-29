@@ -158,6 +158,7 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
             {
                 MenuManager.RemovePlayer(@event.Userid.Slot);
                 _hiddenMenus.TryRemove(@event.Userid.Slot, out _);
+                _sideMenus.TryRemove(@event.Userid.Slot, out _);
             }
             return HookResult.Continue;
         });
@@ -168,6 +169,7 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
             {
                 MenuManager.RemovePlayer(@event.Userid.Slot);
                 _hiddenMenus.TryRemove(@event.Userid.Slot, out _);
+                _sideMenus.TryRemove(@event.Userid.Slot, out _);
                 // The props of the inspection are only used by their owner.
                 Inspection.RemovePlayerProps(@event.Userid.Slot);
             }
@@ -262,6 +264,7 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
         // other [GameEventHandler] attributes; do not unhook it by hand here.
         Inspection.InspectionEnded -= OnInspectionEnded;
         _hiddenMenus.Clear();
+        _sideMenus.Clear();
 
         // The entities of the inspection have to go, the plugin is unloaded.
         Inspection.Cleanup();

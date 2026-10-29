@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -10,6 +11,10 @@ namespace PlayerModelChanger;
 
 public partial class PlayerModelChanger
 {
+    // The side picker menu of every player, so its labels can be refreshed after
+    // a model change while the player is navigating back to it.
+    private readonly ConcurrentDictionary<int, Cs2Menu> _sideMenus = new();
+
     // ===== Menu configuration helpers =====
 
     /// <summary>
@@ -110,6 +115,7 @@ public partial class PlayerModelChanger
         var menu = TryCreateMenu(Localizer["modelmenu.selectside"], (m, slot, item) => { });
         if (menu == null) return null;
         ConfigureMenu(menu);
+        _sideMenus[player.Slot] = menu;
 
         foreach (var side in sides)
         {
@@ -320,6 +326,11 @@ public partial class PlayerModelChanger
                 UpdateCurrentModelItemText(rootMenu, player);
             }
 
+            // The side picker is a separate menu object created with the root
+            // menu; refresh its labels too, otherwise going back still shows the
+            // model name from before the change.
+            RefreshSideMenuTexts(player);
+
             // The menu would cover the model the player just picked, so it goes
             // away for as long as the third person inspection shows the model and
             // comes back when that is over.
@@ -369,6 +380,35 @@ public partial class PlayerModelChanger
                 rootMenu.SetItemText(i, text);
             }
             break;
+        }
+    }
+
+    /// <summary>
+    /// Refreshes the side picker labels with the model of each side. The side
+    /// menu outlives the model list menu, so it has to be updated explicitly.
+    /// </summary>
+    private void RefreshSideMenuTexts(CCSPlayerController player)
+    {
+        if (!_sideMenus.TryGetValue(player.Slot, out var sideMenu) || !sideMenu.IsValid)
+        {
+            return;
+        }
+
+        for (int i = 0; i < sideMenu.ItemCount; i++)
+        {
+            var info = sideMenu.GetItemInfo(i);
+            if (string.IsNullOrEmpty(info) || !info.StartsWith("side_")) continue;
+
+            var side = info.Substring("side_".Length).ToSide();
+            if (side == null) continue;
+
+            var sideName = $"{Localizer[$"side.{side.Value.ToName()}"]}";
+            var currentModel = Service.GetPlayerModel(player, side.Value);
+            var text = currentModel != null ? $"{sideName}: {currentModel.Name}" : sideName;
+            if (sideMenu.GetItemText(i) != text)
+            {
+                sideMenu.SetItemText(i, text);
+            }
         }
     }
 
@@ -540,7 +580,7 @@ public partial class PlayerModelChanger
         {
             if (!int.TryParse(parts[0], out var value)) return false;
             if (wasSelected) return false;
-            Service.AddMeshgroupPreference(player, currentModel, value);
+            Service.AddMeshgroupPreference(player, currentModel, value, false);
             // Deselect the previously selected sibling, if any.
             for (int i = 0; i < menu.ItemCount; i++)
             {
@@ -557,7 +597,7 @@ public partial class PlayerModelChanger
         {
             if (!int.TryParse(parts[0], out var value)) return false;
             if (wasSelected) return false;
-            Service.AddMeshgroupPreference(player, currentModel, value);
+            Service.AddMeshgroupPreference(player, currentModel, value, false);
             for (int i = 0; i < menu.ItemCount; i++)
             {
                 if (i == item) continue;
@@ -573,14 +613,14 @@ public partial class PlayerModelChanger
         {
             if (!int.TryParse(parts[0], out var value)) return false;
             if (wasSelected) return false;
-            Service.AddMeshgroupPreference(player, currentModel, value);
+            Service.AddMeshgroupPreference(player, currentModel, value, false);
             return true;
         }
         if (type == "cr") // combination radio
         {
             var values = parts[0].Split(',').Select(int.Parse).ToList();
             if (wasSelected) return false;
-            Service.SetMeshgroupPreference(player, currentModel, values);
+            Service.SetMeshgroupPreference(player, currentModel, values, false);
             return true;
         }
         if (type == "cm") // combination multi

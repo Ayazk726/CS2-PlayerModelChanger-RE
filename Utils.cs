@@ -215,7 +215,12 @@ public class Utils
             {
                 foreach (var key in caches.Value.Keys)
                 {
-                    caches.Value[key] = caches.Value[key].Replace("%pmc_prefix%", "[{green}PlayerModelChanger-RE{default}] ");
+                    var coloredPrefix = "[{red}PlayerModelChanger-RE{default}] ";
+                    // The localizer cache may already contain the older green
+                    // prefix after a plugin hot-reload, so replace both forms.
+                    caches.Value[key] = caches.Value[key]
+                        .Replace("%pmc_prefix%", coloredPrefix)
+                        .Replace("[{green}PlayerModelChanger-RE{default}] ", coloredPrefix);
                 }
             }
         }
