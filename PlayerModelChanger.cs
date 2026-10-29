@@ -129,7 +129,9 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
         {
             RegisterListener<Listeners.OnServerPrecacheResources>(PrecacheResource);
         }
-        RegisterEventHandler<EventPlayerSpawn>(OnPlayerSpawnEvent);
+        // OnPlayerSpawnEvent is registered by its [GameEventHandler] attribute.
+        // Do not register it again here: a second registration hooks the native
+        // event twice, so every spawn is handled (and the model is set) twice.
         RegisterListener<Listeners.OnTick>(OnTick);
         RegisterListener<Listeners.OnMapStart>(OnMapStart);
         Inspection.InspectionEnded += OnInspectionEnded;
@@ -256,7 +258,8 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
         RemoveListener<Listeners.OnServerPrecacheResources>(PrecacheResource);
         RemoveListener<Listeners.OnTick>(OnTick);
         RemoveListener<Listeners.OnMapStart>(OnMapStart);
-        DeregisterEventHandler<EventPlayerSpawn>(OnPlayerSpawnEvent);
+        // OnPlayerSpawnEvent is unhooked by BasePlugin.Dispose together with the
+        // other [GameEventHandler] attributes; do not unhook it by hand here.
         Inspection.InspectionEnded -= OnInspectionEnded;
         _hiddenMenus.Clear();
 
