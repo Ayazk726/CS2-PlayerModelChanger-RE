@@ -60,6 +60,12 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
     // see the "bot respawn" crash reports of the original plugin.
     private readonly ConcurrentDictionary<string, string> _botModelIndex = new();
 
+    // Set when the plugin is reloaded while the server runs (css_plugins reload,
+    // !modeladmin reload). Existing bots keep their current model until the next
+    // map change: changing the model of a running bot can crash the clients that
+    // are already connected.
+    private bool _freezeBotModelsUntilMapStart;
+
     public bool Enable = true;
 
     public override void Load(bool hotReload)
@@ -125,12 +131,22 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
         }
         RegisterEventHandler<EventPlayerSpawn>(OnPlayerSpawnEvent);
         RegisterListener<Listeners.OnTick>(OnTick);
+        RegisterListener<Listeners.OnMapStart>(OnMapStart);
         Inspection.InspectionEnded += OnInspectionEnded;
         RegisterListener<Listeners.OnMapEnd>(() =>
         {
             Service.ClearMapDefaultModel();
             _botModelIndex.Clear();
         });
+
+        // A reload keeps the running map (and the connected clients). Do not
+        // change the model of an existing bot until the map changes.
+        _freezeBotModelsUntilMapStart = hotReload;
+        if (hotReload)
+        {
+            CacheCurrentBotModels();
+            Logger.LogInformation("[PlayerModelChanger] Bots keep their current model until the next map change.");
+        }
 
         Utils.InitializeLangPrefix();
 
@@ -239,6 +255,7 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
         Interlocked.Exchange(ref _catalogueRefreshPending, 0);
         RemoveListener<Listeners.OnServerPrecacheResources>(PrecacheResource);
         RemoveListener<Listeners.OnTick>(OnTick);
+        RemoveListener<Listeners.OnMapStart>(OnMapStart);
         DeregisterEventHandler<EventPlayerSpawn>(OnPlayerSpawnEvent);
         Inspection.InspectionEnded -= OnInspectionEnded;
         _hiddenMenus.Clear();
@@ -277,7 +294,7 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
                    .Invoke(null, new object[] { Path.GetFileName(ModuleDirectory) }) as IBasePluginConfig;
         OnConfigParsed((config as ModelConfig)!);
         Unload(true);
-        Load(false);
+        Load(true);
         Service.ReloadConfig(ModuleDirectory, Config);
     }
     public void OnConfigParsed(ModelConfig config)
@@ -372,6 +389,36 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
         Inspection.UpdateCamera();
         CheckMenusStartup();
         CheckHiddenMenus();
+    }
+
+    private void OnMapStart(string mapName)
+    {
+        // The new map recreates the bots and lets the clients load the model
+        // resources again, so the configuration may change the bot models now.
+        _freezeBotModelsUntilMapStart = false;
+    }
+
+    /// <summary>
+    /// Remembers the model every bot currently wears, so a bot keeps it after a
+    /// plugin reload. The clients are already connected then and a model switch
+    /// can crash them; the new configuration only applies on the next map.
+    /// </summary>
+    private void CacheCurrentBotModels()
+    {
+        foreach (var bot in Utilities.GetPlayers())
+        {
+            if (!bot.IsValid || !bot.IsBot) continue;
+            var pawn = bot.Pawn.Value;
+            if (pawn == null || !pawn.IsValid) continue;
+            var modelName = pawn.CBodyComponent?.SceneNode?.GetSkeletonInstance().ModelState.ModelName;
+            if (string.IsNullOrEmpty(modelName)) continue;
+
+            var model = Service.GetAllModels().FirstOrDefault(candidate =>
+                string.Equals(candidate.Path, modelName, StringComparison.OrdinalIgnoreCase));
+            if (model == null) continue;
+
+            _botModelIndex[BotKey(bot, (CsTeam)bot.TeamNum)] = model.Index;
+        }
     }
 
     // ===== Hidden menus =====
@@ -519,6 +566,23 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
 
             if (player.IsBot)
             {
+                // After a plugin reload the clients are already connected and
+                // may not have the new model resources loaded; switching a bot
+                // to another model then crashes them. Keep the model the bot
+                // already wears until the next map.
+                if (_freezeBotModelsUntilMapStart)
+                {
+                    if (_botModelIndex.TryGetValue(BotKey(player, team), out var frozenIndex))
+                    {
+                        var frozenModel = Service.GetModel(frozenIndex);
+                        if (frozenModel != null)
+                        {
+                            SetBotModelNextServerFrame(player, frozenModel);
+                        }
+                    }
+                    return HookResult.Continue;
+                }
+
                 var modelindex = PickBotModelIndex(player, team);
                 if (modelindex == null)
                 {
