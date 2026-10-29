@@ -1,0 +1,60 @@
+PlayerModelChanger-RE
+=====================
+
+PlayerModelChanger-RE is a modified version of CS2-PlayerModelChanger:
+
+  Original project: https://github.com/samyycX/CS2-PlayerModelChanger
+  Original project Copyright (C) samyycX and contributors.
+
+This repository is maintained by the PlayerModelChanger-RE contributors.
+
+Modifications
+-------------
+This version contains changes made on 2026-10-29 and earlier, including:
+
+- renamed the plugin, plugin directory and configuration to PlayerModelChanger-RE;
+- Panorama-style menus and a restored side-selection menu;
+- custom meshgroup families and automatic meshgroup catalogue generation from
+  configured workshop VPKs;
+- improved model preview (inspection camera);
+- model preview and meshgroup menu behavior fixes;
+- bot model stability fixes: a stable model per bot per map, and bot model
+  changes deferred until the next map after a plugin reload;
+- documentation, build output and tooling changes.
+
+The original copyright notices and attribution must be preserved when this work
+is redistributed.
+
+License
+-------
+This project is licensed under the GNU General Public License, version 3.
+See the LICENSE file in this directory or at:
+
+  https://www.gnu.org/licenses/gpl-3.0.html
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, version 3 of the License.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+Source code
+-----------
+Corresponding source code for released builds:
+
+  GitHub: https://github.com/Ayazk726/CS2-PlayerModelChanger-RE
+  Gitee:  https://gitee.com/Ayazk/cs2-player-model-changer-re
+
+Third-party components
+----------------------
+The release packages contain third-party libraries and tools, including Dapper,
+SkiaSharp, Microsoft.Data.Sqlite/SQLitePCLRaw/e_sqlite3, MySqlConnector,
+Newtonsoft.Json and Microsoft.Extensions.* dependencies. The packages with
+"S2V-CLI" in their name also contain Source2Viewer-CLI.
+
+Those components are distributed under their own licenses and copyrights. Their
+license texts are available from their respective upstream projects. They are
+not covered by the GPLv3 license of PlayerModelChanger-RE unless their own
+license says so.

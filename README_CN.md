@@ -34,6 +34,7 @@
     - [1. 找到模型路径](#1-找到模型路径)
     - [2. 用 MultiAddonManager 下载 addon](#2-用-multiaddonmanager-下载-addon)
     - [3. 把模型加进 PlayerModelChanger-RE.json](#3-把模型加进-playermodelchanger-rejson)
+  - [许可证](#许可证)
 
 ## 功能
 
@@ -361,3 +362,15 @@ dotnet build /p:CsgoDir="C:/path/to/game/csgo/"
 ### 3. 把模型加进 PlayerModelChanger-RE.json
 
 在 `PlayerModelChanger-RE.json` 里添加配置（见 [如何配置模型？](#如何配置模型)），然后 `!modeladmin reload` 或重启插件。
+
+## 许可证
+
+本项目使用 **GNU General Public License v3.0** 授权，完整协议见 [LICENSE](LICENSE)。
+
+本项目基于 [CS2-PlayerModelChanger](https://github.com/samyycX/CS2-PlayerModelChanger)（原作者 samyycX 及贡献者）二次开发。修改说明、署名和源码地址见 [NOTICE](NOTICE)。
+
+源码地址：
+
+- GitHub：<https://github.com/Ayazk726/CS2-PlayerModelChanger-RE>
+- Gitee：<https://gitee.com/Ayazk/cs2-player-model-changer-re>
+

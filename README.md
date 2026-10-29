@@ -36,6 +36,7 @@ This project is a derivative work based on [CS2-PlayerModelChanger](https://gith
     - [1. Locate the model path](#1-locate-the-model-path)
     - [2. Download the addon with MultiAddonManager](#2-download-the-addon-with-multiaddonmanager)
     - [3. Add the model to PlayerModelChanger-RE.json](#3-add-the-model-to-playermodelchanger-rejson)
+  - [License](#license)
 
 ## Features
 
@@ -365,3 +366,15 @@ The path should look like `characters/.../xxx.vmdl`.
 ### 3. Add the model to PlayerModelChanger-RE.json
 
 Add the configuration in `PlayerModelChanger-RE.json` (see [How to configure a model](#how-to-configure-a-model)), then run `!modeladmin reload` or restart the plugin.
+
+## License
+
+This project is licensed under the **GNU General Public License v3.0**. See [LICENSE](LICENSE) for the full license text.
+
+It is a modified version of [CS2-PlayerModelChanger](https://github.com/samyycX/CS2-PlayerModelChanger), originally by samyycX and contributors. See [NOTICE](NOTICE) for attribution, the list of modifications and the source code locations.
+
+Source code:
+
+- GitHub: <https://github.com/Ayazk726/CS2-PlayerModelChanger-RE>
+- Gitee: <https://gitee.com/Ayazk/cs2-player-model-changer-re>
+
