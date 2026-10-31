@@ -58,7 +58,17 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
     // Bots keep the model they got for the whole map. Assigning a new random
     // model (or skin) on every respawn makes clients stutter and can crash them,
     // see the "bot respawn" crash reports of the original plugin.
+    //
+    // The entry is keyed by the bot only, NOT by the team: a bot that changes
+    // sides keeps the model it wore before. Keying it by the team would let a
+    // bot roll a new model for its new side right at a team switch, which is the
+    // moment the clients are already busy switching teams and crashing them.
     private readonly ConcurrentDictionary<string, string> _botModelIndex = new();
+
+    // Marks a bot that must not get a plugin model on this map, for example
+    // because its side has an empty ModelForBots list. Without the mark the bot
+    // would silently pick a model when it changes to the other side.
+    private const string NoBotModel = "@no-bot-model";
 
     // Set when the plugin is reloaded while the server runs (css_plugins reload,
     // !modeladmin reload). Existing bots keep their current model until the next
@@ -423,7 +433,7 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
                 string.Equals(candidate.Path, modelName, StringComparison.OrdinalIgnoreCase));
             if (model == null) continue;
 
-            _botModelIndex[BotKey(bot, (CsTeam)bot.TeamNum)] = model.Index;
+            _botModelIndex[BotKey(bot)] = model.Index;
         }
     }
 
@@ -572,13 +582,15 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
 
             if (player.IsBot)
             {
+                var botKey = BotKey(player);
+
                 // After a plugin reload the clients are already connected and
                 // may not have the new model resources loaded; switching a bot
                 // to another model then crashes them. Keep the model the bot
                 // already wears until the next map.
                 if (_freezeBotModelsUntilMapStart)
                 {
-                    if (_botModelIndex.TryGetValue(BotKey(player, team), out var frozenIndex))
+                    if (_botModelIndex.TryGetValue(botKey, out var frozenIndex))
                     {
                         var frozenModel = Service.GetModel(frozenIndex);
                         if (frozenModel != null)
@@ -589,17 +601,44 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
                     return HookResult.Continue;
                 }
 
+                // The bot already got its model for this map: put exactly that
+                // one back. This is what keeps a bot on the same model when it
+                // changes sides: the game assigns the model of the new team on
+                // the respawn, and without this the bot would be given a new
+                // one right in the middle of the team switch.
+                if (_botModelIndex.TryGetValue(botKey, out var chosenIndex))
+                {
+                    if (chosenIndex == NoBotModel)
+                    {
+                        return HookResult.Continue;
+                    }
+                    var chosenModel = Service.GetModel(chosenIndex);
+                    if (chosenModel != null)
+                    {
+                        SetBotModelNextServerFrame(player, chosenModel);
+                        return HookResult.Continue;
+                    }
+                    // The model vanished from the configuration; pick again.
+                    _botModelIndex.TryRemove(botKey, out _);
+                }
+
                 var modelindex = PickBotModelIndex(player, team);
                 if (modelindex == null)
                 {
+                    // No bot model is configured for the side the bot first
+                    // spawned on: leave it with the model of the game for the
+                    // whole map. A model picked later (after a change of sides)
+                    // would be a model switch in the middle of the match.
+                    _botModelIndex[botKey] = NoBotModel;
                     return HookResult.Continue;
                 }
+
                 var botmodel = Service.GetModel(modelindex);
                 if (botmodel == null)
                 {
-                    // The configured entry is invalid; forget the choice so the
-                    // next spawn can pick a valid one.
-                    _botModelIndex.TryRemove(BotKey(player, team), out _);
+                    // The configured entry is invalid; forget the choice so a
+                    // later spawn can pick a valid one.
+                    _botModelIndex.TryRemove(botKey, out _);
                     Server.NextFrame(() =>
                     {
                         if (player.IsValid && player.Pawn.Value != null)
@@ -611,6 +650,7 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
                     return HookResult.Continue;
                 }
 
+                _botModelIndex[botKey] = modelindex;
                 SetBotModelNextServerFrame(player, botmodel);
                 return HookResult.Continue;
             }
@@ -679,21 +719,23 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
         return HookResult.Continue;
     }
 
-    private static string BotKey(CCSPlayerController player, CsTeam team)
-        => $"{(player.SteamID != 0 ? player.SteamID : (ulong)(player.Slot + 1))}_{(int)team}";
+    /// <summary>
+    /// Identifies a bot for the whole map, independent of the team it plays on,
+    /// so a change of sides does not count as a new bot.
+    /// </summary>
+    private static string BotKey(CCSPlayerController player)
+        => (player.SteamID != 0 ? player.SteamID : (ulong)(player.Slot + 1)).ToString();
 
     /// <summary>
     /// The model a bot keeps for this map. A random entry is rolled once, so a
-    /// respawn does not switch the bot to another model: changing the model of a
-    /// bot on every respawn makes clients stutter and crash.
+    /// respawn or a change of sides does not switch the bot to another model:
+    /// changing the model of a bot in the middle of a match makes clients
+    /// stutter and crash.
     /// </summary>
     private string? PickBotModelIndex(CCSPlayerController player, CsTeam team)
     {
         var entries = team == CsTeam.Terrorist ? Config.ModelForBots.T : Config.ModelForBots.CT;
         if (entries.Count == 0) return null;
-
-        var key = BotKey(player, team);
-        if (_botModelIndex.TryGetValue(key, out var chosen)) return chosen;
 
         var valid = entries.Where(entry => entry == "@random" || Service.GetModel(entry) != null).ToList();
         if (valid.Count == 0) return null;
@@ -706,7 +748,6 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
             modelindex = models[Random.Shared.Next(models.Count)].Index;
         }
 
-        _botModelIndex[key] = modelindex;
         return modelindex;
     }
 

@@ -190,7 +190,7 @@ counterstrikesharp/
 | `Models` | `{}` | The models the player may pick, see [How to configure a model](#how-to-configure-a-model). |
 | `StorageType` | `sqlite` | `sqlite` or `mysql`. |
 | `MySQL_*` | — | MySQL connection settings, only used when `StorageType` is `mysql`. |
-| `ModelForBots` | `{CT:[],T:[]}` | Model indices bots get per side; an empty list leaves bots alone. |
+| `ModelForBots` | `{CT:[],T:[]}` | Model indices bots get per side. A bot picks one model on its first spawn of a map and keeps it for the whole map, also after a change of sides; an empty list leaves the bot with the game's model. |
 | `ModelChangeCooldownSecond` | `0` | Cooldown between model changes in seconds; `0` disables the cooldown. |
 | `Inspection.Enable` | `true` | Third-person preview after a selection. |
 | `Inspection.Mode` | `rotation` | How the preview camera moves. |

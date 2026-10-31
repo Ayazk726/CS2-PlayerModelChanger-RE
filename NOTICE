@@ -20,6 +20,10 @@ This version contains changes made on 2026-10-29 and earlier, including:
 - model preview and meshgroup menu behavior fixes;
 - bot model stability fixes: a stable model per bot per map, and bot model
   changes deferred until the next map after a plugin reload;
+- the stable model of a bot is not tied to its team: a bot that changes sides
+  keeps the model it picked on its first spawn, instead of rolling a new one at
+  the team switch (bot models are still chosen from the ModelForBots list of the
+  side the bot first spawned on);
 - documentation, build output and tooling changes.
 
 The original copyright notices and attribution must be preserved when this work

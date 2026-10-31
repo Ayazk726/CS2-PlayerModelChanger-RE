@@ -187,7 +187,7 @@ counterstrikesharp/
 | `Models` | `{}` | 玩家可选的模型，见 [如何配置模型](#如何配置模型)。 |
 | `StorageType` | `sqlite` | `sqlite` 或 `mysql`。 |
 | `MySQL_*` | — | MySQL 连接信息，仅在 `StorageType` 为 `mysql` 时使用。 |
-| `ModelForBots` | `{CT:[],T:[]}` | bot 按阵营获得的模型 index；空列表表示不处理 bot。 |
+| `ModelForBots` | `{CT:[],T:[]}` | bot 按首次出生时所在阵营获得的模型 index；一只 bot 整张地图保持同一个模型，换边也不换；空列表表示不处理 bot。 |
 | `ModelChangeCooldownSecond` | `0` | 两次更换模型之间的冷却秒数，`0` 为不限制。 |
 | `Inspection.Enable` | `true` | 选择后第三人称预览。 |
 | `Inspection.Mode` | `rotation` | 预览镜头移动方式。 |
