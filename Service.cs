@@ -26,12 +26,8 @@ public class ModelService
 
     private Dictionary<ulong, MapDefaultModel> _MapDefaultModels = new Dictionary<ulong, MapDefaultModel>();
 
-
     private Dictionary<ulong, long> _ModelChangeCooldown = new Dictionary<ulong, long>();
 
-    // The model behind an entry that stands for more than one model ("@random"
-    // and "@default"). The cache only remembers the entry itself, so the model
-    // that was picked has to be kept to show the right name in the menu.
     private Dictionary<string, Model> _pickedModels = new Dictionary<string, Model>();
 
     public ModelService(ModelConfig Config, IStorage storage, IStringLocalizer localizer, DefaultModelManager defaultModelManager)
@@ -127,9 +123,6 @@ public class ModelService
             if (player == null) { return; }
             if (Utils.CanPlayerSetModelInstantly(player, Side.All))
             {
-                // The model of the side the player is on. It is read from the cache
-                // so that "@default" and "@random" are resolved the same way as in
-                // SetPlayerModel: the configured default and the rolled model.
                 var side = player.Team == CsTeam.Terrorist ? Side.T : Side.CT;
                 var model = GetPlayerModel(player, side);
                 Utils.InstantUpdatePlayer(player, model, inspection && _Config.Inspection.Enable && model?.Index != "@random", silent);
@@ -192,7 +185,6 @@ public class ModelService
         return new Tuple<bool, bool>(false, false);
     }
 
-    // side only t and ct
     public bool CheckModel(CCSPlayerController player, Side side, ModelCache? modelCache, DefaultModel? defaultModel)
     {
         if (modelCache == null)
@@ -297,16 +289,9 @@ public class ModelService
 
     public Model? GetRandomModel(CCSPlayerController player)
     {
-        // Both sides carry the same model, so the random one is rolled once for
-        // the player and not once per side.
         return GetPickedModel(player, Side.All, "@random", GetAllAppliableModels(player, Side.All));
     }
 
-    /// <summary>
-    /// The model behind an entry that stands for more than one model. The same
-    /// one is returned until it is picked again, so the menu shows the model that
-    /// is really worn instead of a second roll.
-    /// </summary>
     private Model? GetPickedModel(CCSPlayerController player, Side side, string entry, List<Model> models)
     {
         if (models.Count == 0)
@@ -331,13 +316,6 @@ public class ModelService
 
     private static string PickedKey(ulong steamid, Side side, string entry) => $"{steamid}_{side}_{entry}";
 
-    /// <summary>
-    /// Picks a new model for an entry that stands for more than one.
-    /// </summary>
-    /// <remarks>
-    /// Only "@random" and "@default" stand for more than one model, every other
-    /// index names exactly one.
-    /// </remarks>
     public void RollPickedModel(ulong steamid, Side side, string entry)
     {
         if (entry != "@random" && entry != "@default")
@@ -347,8 +325,6 @@ public class ModelService
 
         if (entry == "@random")
         {
-            // The random model is rolled once for the player, both sides of the
-            // player share it.
             _pickedModels.Remove(PickedKey(steamid, Side.All, entry));
             return;
         }
@@ -362,10 +338,6 @@ public class ModelService
         _pickedModels.Remove(PickedKey(steamid, side, entry));
     }
 
-    /// <summary>
-    /// Picks new models for the entries that stand for more than one model, so a
-    /// new life gets a new random model.
-    /// </summary>
     public void RollPickedModels(CCSPlayerController player)
     {
         var steamid = player.AuthorizedSteamID?.SteamId64;
@@ -379,10 +351,6 @@ public class ModelService
         RollPickedModel(steamid.Value, side, "@default");
     }
 
-    /// <summary>
-    /// True when a default model is configured for this player and side. Without
-    /// one there is nothing the "default" entry could apply, so it is not shown.
-    /// </summary>
     public bool HasDefaultModel(CCSPlayerController player, Side side)
     {
         if (side == Side.All)
@@ -393,15 +361,6 @@ public class ModelService
         return _DefaultModelManager.GetPlayerDefaultModel(player, side) != null;
     }
 
-    /// <summary>
-    /// The model the player wears.
-    /// </summary>
-    /// <remarks>
-    /// Both sides carry the same model, so <see cref="Side.All"/> gives the one
-    /// model of the player. Only a configuration from before the models were
-    /// unified can have two different models, then the one of the side the
-    /// player is on is the one they see.
-    /// </remarks>
     public Model? GetPlayerModel(CCSPlayerController player, Side side)
     {
         if (side == Side.All)
@@ -412,8 +371,6 @@ public class ModelService
             {
                 return tModel;
             }
-            // The two sides carry different models: the one of the side the player
-            // is on is the one they see, so the menu has a name to show.
             return player.Team == CsTeam.Terrorist ? tModel : ctModel;
         }
         var modelCache = _CacheManager.GetPlayerModelCache(player);
@@ -430,8 +387,6 @@ public class ModelService
             {
                 return null;
             }
-            // The configured default can name more than one model. The one that is
-            // used is kept, so the menu shows the model that is really worn.
             var models = defaultModel.index
                 .Select(index => index == "" ? null : GetModel(index))
                 .Where(model => model != null)
@@ -450,9 +405,6 @@ public class ModelService
         return GetModel(modelIndex);
     }
 
-    /// <summary>
-    /// The name of the model the player wears. Both sides carry the same model.
-    /// </summary>
     public string GetPlayerModelName(CCSPlayerController player)
     {
         var modelCache = _CacheManager.GetPlayerModelCache(player);
@@ -502,8 +454,6 @@ public class ModelService
     {
         var old = new List<int>(GetMeshgroupPreference(player, model));
         old.Sort();
-        // The mesh groups of the model itself are not part of the choice, they
-        // keep the value the model was made with.
         foreach (var fixedGroup in model.FixedMeshgroups.Keys)
         {
             old.Remove(fixedGroup);
@@ -536,11 +486,6 @@ public class ModelService
         return GetMeshgroupPreference(player, model).Contains(meshgroup);
     }
 
-    /// <summary>
-    /// Remembers the mesh groups of the model the player wears, when the
-    /// player has not picked any yet. The mask of the model is the start of
-    /// the choice, so that the model looks the way its maker wanted it.
-    /// </summary>
     public bool InitMeshgroupPreference(CCSPlayerController player, Model model, ulong meshgroupmask)
     {
         if (model.Meshgroups.Count == 0)

@@ -11,22 +11,10 @@ namespace PlayerModelChanger;
 
 public partial class PlayerModelChanger
 {
-    // The side picker menu of every player, so its labels can be refreshed after
-    // a model change while the player is navigating back to it.
     private readonly ConcurrentDictionary<int, Cs2Menu> _sideMenus = new();
 
-    // ===== Menu configuration helpers =====
-
-    /// <summary>
-    /// Apply this plugin's menu conventions to a freshly built Cs2Menu.
-    /// The menus are created as panorama menus: cs2menus falls back to html and
-    /// then to chat on its own when the panorama addon isn't mounted. The WASD
-    /// keys of the previous homegrown menu are kept for the chat and html renders.
-    /// </summary>
     private void ConfigureMenu(Cs2Menu menu)
     {
-        // Stay open after a pick: the plugin marks the equipped model in place and
-        // cs2menus re-renders the menu for us after every selection.
         menu.SetCloseOnSelect(false);
         menu.SetMenuKey(MenuNavAction.Up, MenuButton.W);
         menu.SetMenuKey(MenuNavAction.Down, MenuButton.S);
@@ -34,10 +22,6 @@ public partial class PlayerModelChanger
         menu.SetMenuKey(MenuNavAction.Back, MenuButton.A);
     }
 
-    /// <summary>
-    /// Create a menu through the bridge, or null when the bridge isn't reachable
-    /// or cs2menus refused to create it.
-    /// </summary>
     private Cs2Menu? TryCreateMenu(string title, Action<Cs2Menu, int, int>? onSelect = null)
     {
         if (_menus == null || !_menus.Available)
@@ -48,8 +32,6 @@ public partial class PlayerModelChanger
         try
         {
             var menu = _menus.CreateMenu(MenuType.Panorama, title, onSelect);
-            // The bridge only hands out menus once the native plugin is up, so
-            // this is the moment to report that the menus really work.
             LogMenusReady();
             return menu;
         }
@@ -60,36 +42,23 @@ public partial class PlayerModelChanger
         }
     }
 
-    // ===== Root menu =====
-
-    /// <summary>
-    /// The first menu of the player. It holds the side picker with the models,
-    /// and the model the player wears, with the mesh groups and the skin of it.
-    /// </summary>
     public Cs2Menu? GetSelectRootMenu(CCSPlayerController player)
     {
         var menu = TryCreateMenu(Localizer["modelmenu.root"], (m, slot, item) => OnSelectRootItem(m, slot, item, player));
         if (menu == null) return null;
         ConfigureMenu(menu);
 
-        // The list of the models the player may wear, split by side.
         var sideMenu = GetSelectSideMenu(player);
         if (sideMenu != null)
         {
             menu.AddSubMenu(Localizer["modelmenu.select"], sideMenu, "sides");
         }
 
-        // The model the player wears. Picking it opens the mesh groups and the
-        // skin of it.
         menu.AddItem(CurrentModelText(player), "current");
 
         return menu;
     }
 
-    /// <summary>
-    /// The menu that lets the player pick which side to change: all sides, T or
-    /// CT. A side with a forced default model is not offered.
-    /// </summary>
     public Cs2Menu? GetSelectSideMenu(CCSPlayerController player)
     {
         var sides = new List<Side>();
@@ -131,10 +100,6 @@ public partial class PlayerModelChanger
         return menu;
     }
 
-    /// <summary>
-    /// The entry of the root menu that opens the mesh groups and the skin of
-    /// the model the player wears.
-    /// </summary>
     private void OnSelectRootItem(Cs2Menu menu, int slot, int item, CCSPlayerController player)
     {
         if (!player.IsValid) return;
@@ -147,8 +112,6 @@ public partial class PlayerModelChanger
             return;
         }
 
-        // The menu is built here and not with the root menu, so it always
-        // belongs to the model the player wears now.
         var customMenu = GetSelectCustomizationMenu(player, currentModel);
         if (customMenu == null)
         {
@@ -156,19 +119,12 @@ public partial class PlayerModelChanger
             return;
         }
 
-        // The menu goes on top of the one on the screen, so the back button of
-        // it brings the player back here.
         if (!MenuManager.Push(player, customMenu))
         {
-            // It could not go on top, so it takes the place of the menu that is
-            // on the screen.
             MenuManager.Display(player, customMenu, customMenu);
         }
     }
 
-    /// <summary>
-    /// The text of the entry that shows the model the player wears.
-    /// </summary>
     private string CurrentModelText(CCSPlayerController player)
     {
         var currentModel = Service.GetPlayerModel(player, Side.All);
@@ -194,9 +150,6 @@ public partial class PlayerModelChanger
         MenuManager.Display(player, root, root);
     }
 
-    /// <summary>
-    /// Opens the model list of one side directly, used by "!md &lt;side&gt;".
-    /// </summary>
     public void OpenSelectModelMenu(CCSPlayerController player, Side side)
     {
         if (!MenuManager.Available)
@@ -221,8 +174,6 @@ public partial class PlayerModelChanger
         MenuManager.Display(player, menu, menu);
     }
 
-    // ===== Model list menu =====
-
     public Cs2Menu? GetSelectModelMenu(CCSPlayerController player, Side side)
     {
         var currentModel = Service.GetPlayerModel(player, side);
@@ -234,7 +185,6 @@ public partial class PlayerModelChanger
         if (menu == null) return null;
         ConfigureMenu(menu);
 
-        // info holds the model index (or sentinel "" / "@random" / "@default").
         int itemIndex = 0;
 
         menu.AddItem(Localizer["modelmenu.unset"], "");
@@ -246,9 +196,6 @@ public partial class PlayerModelChanger
             itemIndex++;
         }
 
-        // The default entry applies the model configured in DefaultModels.json.
-        // Without such a configuration there is nothing it could do, so it is
-        // not shown at all.
         if (Service.HasDefaultModel(player, side))
         {
             menu.AddItem(Localizer["modelmenu.default"], "@default");
@@ -261,7 +208,6 @@ public partial class PlayerModelChanger
             var isSelected = currentModel != null && model.Index == currentModel.Index;
             menu.AddItem(isSelected ? $"★ {model.Name}" : model.Name, model.Index);
 
-            // The accent on the equipped one, the rest of the row only carries the name.
             if (isSelected && MenuManager.SupportsBadgesAndDialogs)
             {
                 menu.SetItemHighlight(itemIndex, true);
@@ -279,8 +225,6 @@ public partial class PlayerModelChanger
 
         var modelIndex = menu.GetItemInfo(itemIndex);
 
-        // Resetting to the default model asks first. Only a panorama window can
-        // show the dialog, so it falls back to applying it right away.
         if (modelIndex == "@default"
             && MenuManager.Confirm(slot,
                 Localizer["modelmenu.confirm.title"],
@@ -306,7 +250,6 @@ public partial class PlayerModelChanger
 
         if (Service.SetPlayerModelWithCheck(player, modelIndex, side, silent: true))
         {
-            // Update the menu title to show the new current model of the side.
             var newModel = Service.GetPlayerModel(player, side);
             if (menu.IsValid)
             {
@@ -314,31 +257,19 @@ public partial class PlayerModelChanger
                 var currentName = newModel == null ? $"{Localizer["model.none"]}" : newModel.Name;
                 menu.SetTitle(Message("modelmenu.title", sideName, currentName));
 
-                // Refresh the ★ markers on the visible model list.
                 RefreshModelMenuMarkers(menu, player, side);
             }
 
-            // Refresh the entry of the root menu, it shows the model the player
-            // wears now when the user navigates back.
             var rootMenu = MenuManager.GetRootMenu(slot);
             if (rootMenu != null && !ReferenceEquals(rootMenu, menu) && rootMenu.IsValid)
             {
                 UpdateCurrentModelItemText(rootMenu, player);
             }
 
-            // The side picker is a separate menu object created with the root
-            // menu; refresh its labels too, otherwise going back still shows the
-            // model name from before the change.
             RefreshSideMenuTexts(player);
 
-            // The menu would cover the model the player just picked, so it goes
-            // away for as long as the third person inspection shows the model and
-            // comes back when that is over.
             HideMenuWhileInspecting(player);
 
-            // Tell the player what they got: a toast in the menu's own window when
-            // there is one, in chat otherwise. The window is hidden right now, so
-            // this lands in the chat.
             MenuManager.Notify(player, slot, Message("modelmenu.applied",
                 newModel == null ? Localizer["model.none"] : newModel.Name));
         }
@@ -366,9 +297,6 @@ public partial class PlayerModelChanger
         }
     }
 
-    /// <summary>
-    /// Shows the model the player wears now in the root menu.
-    /// </summary>
     private void UpdateCurrentModelItemText(Cs2Menu rootMenu, CCSPlayerController player)
     {
         var text = CurrentModelText(player);
@@ -383,10 +311,6 @@ public partial class PlayerModelChanger
         }
     }
 
-    /// <summary>
-    /// Refreshes the side picker labels with the model of each side. The side
-    /// menu outlives the model list menu, so it has to be updated explicitly.
-    /// </summary>
     private void RefreshSideMenuTexts(CCSPlayerController player)
     {
         if (!_sideMenus.TryGetValue(player.Slot, out var sideMenu) || !sideMenu.IsValid)
@@ -412,11 +336,6 @@ public partial class PlayerModelChanger
         }
     }
 
-    // ===== Meshgroup + Skin submenus =====
-
-    /// <summary>
-    /// The mesh groups and the skin of the model the player wears.
-    /// </summary>
     public Cs2Menu? GetSelectCustomizationMenu(CCSPlayerController player, Model? currentModel = null)
     {
         currentModel ??= Service.GetPlayerModel(player, Side.All);
@@ -430,7 +349,6 @@ public partial class PlayerModelChanger
         if (menu == null) return null;
         ConfigureMenu(menu);
 
-        // Optional skin submenu, mirroring the original `skin=true` behaviour.
         var skinMenu = GetSelectSkinMenu(player, currentModel);
         if (skinMenu != null)
         {
@@ -461,9 +379,6 @@ public partial class PlayerModelChanger
                 }
                 else
                 {
-                    // Explicit List<int> cast: kv.Value is `dynamic`, so without the
-                    // explicit type the inferred var would be dynamic and downstream
-                    // LINQ calls would fail dynamic-dispatch resolution.
                     List<int> values = JsonSerializer.Deserialize<List<int>>(kv.Value) ?? new List<int>();
                     var allSelected = values.Count > 0 && values.All(v => meshgroupPreference.Contains(v));
                     var type = (radio || opradio) ? "cr" : "cm";
@@ -535,7 +450,6 @@ public partial class PlayerModelChanger
 
     private void OnSelectMeshgroupGroup(Cs2Menu menu, int slot, int item, CCSPlayerController player, Model currentModel)
     {
-        // No-op: this menu only carries submenu items.
     }
 
     private void OnSelectMeshgroupItem(Cs2Menu menu, int slot, int item, CCSPlayerController player,
@@ -543,30 +457,18 @@ public partial class PlayerModelChanger
     {
         if (!player.IsValid) return;
 
-        // Picking the component that is already equipped keeps it equipped and
-        // the menu open; only a real change puts the model on again and shows
-        // the inspection camera.
         if (!ApplyMeshgroupToggle(menu, item, player, currentModel, radio, opradio, combination))
         {
             RefreshMeshgroupMenuMarkers(menu, player, currentModel, radio, opradio, combination);
             return;
         }
 
-        // The model is put on again with the new mesh groups, which shows it in
-        // the inspection camera. The menu goes away for as long as the model is
-        // shown and comes back when that is over.
         Service.MeshgroupUpdate(player);
         HideMenuWhileInspecting(player);
 
         RefreshMeshgroupMenuMarkers(menu, player, currentModel, radio, opradio, combination);
-        // cs2menus re-renders the menu after every pick, no display call needed.
     }
 
-    /// <summary>
-    /// Applies the picked mesh group item. Returns false when the picked item is
-    /// already equipped, so the caller can keep the menu open instead of closing
-    /// the component.
-    /// </summary>
     private bool ApplyMeshgroupToggle(Cs2Menu menu, int item, CCSPlayerController player,
         Model currentModel, bool radio, bool opradio, bool combination)
     {
@@ -581,7 +483,6 @@ public partial class PlayerModelChanger
             if (!int.TryParse(parts[0], out var value)) return false;
             if (wasSelected) return false;
             Service.AddMeshgroupPreference(player, currentModel, value, false);
-            // Deselect the previously selected sibling, if any.
             for (int i = 0; i < menu.ItemCount; i++)
             {
                 if (i == item) continue;
@@ -670,7 +571,6 @@ public partial class PlayerModelChanger
 
         Service.SetSkinPreference(player, currentModel, skin);
 
-        // Refresh ★ markers — single-select within the skin list.
         for (int i = 0; i < menu.ItemCount; i++)
         {
             var currentText = menu.GetItemText(i);
@@ -679,6 +579,5 @@ public partial class PlayerModelChanger
             if (currentText != desired) menu.SetItemText(i, desired);
         }
 
-        // cs2menus re-renders the menu after every pick, no display call needed.
     }
 }

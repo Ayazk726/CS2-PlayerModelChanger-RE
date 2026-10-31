@@ -170,7 +170,6 @@ public class DefaultModelManager
 
     private List<DefaultModelEntry> DefaultModels = new List<DefaultModelEntry>();
 
-
     public void ReloadConfig(string ModuleDirectory, ModelService service)
     {
         var filePath = Path.Join(ModuleDirectory, "../../configs/plugins/PlayerModelChanger-RE/DefaultModels.json");
@@ -253,11 +252,6 @@ public class DefaultModelManager
         }
         return defaultModels;
     }
-
-    // stage 0 : search steam id
-    // stage 1 : search permission flag
-    // stage 2 : search permission group
-    // stage 3 : search all
 
     private DefaultModelEntry? GetPlayerDefaultModelWithPriority(List<DefaultModelEntry> entries)
     {

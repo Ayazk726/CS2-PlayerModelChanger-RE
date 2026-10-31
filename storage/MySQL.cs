@@ -20,7 +20,6 @@ public class MySQLStorage : IStorage
                 `ct_model` TEXT
             );
         """);
-        // UPDATE #1
         conn.Execute($"""
             SET @dbname = DATABASE();
             SET @tablename = "{table}";
@@ -54,10 +53,9 @@ public class MySQLStorage : IStorage
             EXECUTE alterIfNotExists2;
             DEALLOCATE PREPARE alterIfNotExists;
             DEALLOCATE PREPARE alterIfNotExists2;
-            
+
         """);
 
-        // meshgroup preference
         conn.Execute($"""
             CREATE TABLE IF NOT EXISTS `{table}_meshgrouppreferences` (
                 `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -69,7 +67,6 @@ public class MySQLStorage : IStorage
             );
         """);
 
-        // skip preference
         conn.Execute($"""
             CREATE TABLE IF NOT EXISTS `{table}_skippreferences` (
                 `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -177,7 +174,6 @@ public class MySQLStorage : IStorage
         return connection.Query<int>($"SELECT `meshgroup` FROM `{Table}_meshgrouppreferences` WHERE `steamid` = {SteamID} AND `model` = '{modelIndex}';").ToList();
     }
 
-
     public void AddMeshgroupPreference(ulong SteamID, string modelIndex, int meshgroup)
     {
         Task.Run(async () =>
@@ -202,7 +198,7 @@ public class MySQLStorage : IStorage
         public int meshgroup { get; set; }
 
     }
-    
+
     public int GetSkinPreference(ulong SteamID, string modelIndex)
     {
         using MySqlConnection connection = ConnectAsync().Result;

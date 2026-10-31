@@ -29,7 +29,6 @@ public partial class PlayerModelChanger
             return;
         }
 
-
         var type = commandInfo.GetArg(2);
         if (type == "reset")
         {

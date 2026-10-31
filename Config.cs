@@ -84,11 +84,7 @@ public class ModelConfig : BasePluginConfig
     [JsonPropertyName("DisableAutoCheck")] public bool DisableAutoCheck { get; set; } = false;
     [JsonPropertyName("DisableMeshgroupDetection")] public bool DisableMeshgroupDetection { get; set; } = false;
     [JsonPropertyName("DisableAutoMeshgroupCatalogue")] public bool DisableAutoMeshgroupCatalogue { get; set; } = false;
-    // The workshop ids of the addons that hold the character models, for
-    // example ["3191706064"]. When it is set only these addons are read.
     [JsonPropertyName("MeshgroupCatalogueWorkshopIds")] public List<string> MeshgroupCatalogueWorkshopIds { get; set; } = [];
-    // The addon folders to scan when no workshop ids are given. When both this
-    // and MeshgroupCatalogueWorkshopIds are empty the sync does nothing.
     [JsonPropertyName("MeshgroupCatalogueVpkDirs")] public List<string> MeshgroupCatalogueVpkDirs { get; set; } = [];
     [JsonPropertyName("DisablePlayerSelection")] public bool DisablePlayerSelection { get; set; } = false;
     [JsonPropertyName("AutoResyncCache")] public bool AutoResyncCache { get; set; } = false;

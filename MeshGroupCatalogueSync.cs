@@ -6,42 +6,8 @@ using Microsoft.Extensions.Logging;
 
 namespace PlayerModelChanger;
 
-/// <summary>
-/// Keeps the catalogue directory in sync with the workshop addons of the
-/// server: it finds their VPK files, asks the Source2Viewer CLI next to the
-/// plugin for the mesh groups of the models and writes a catalogue file for
-/// every addon that changed. The plugin reloads the catalogue afterwards, so a
-/// new model needs no new build of the plugin.
-/// </summary>
-/// <remarks>
-/// It runs on a background thread and never blocks the game. The result is
-/// cached by the size and the write time of the VPK, so a server start with
-/// unchanged addons does not call the CLI at all.
-/// <para>
-/// It runs once when the plugin loads and reads the addons that are on the
-/// server at that moment. MultiAddonManager only mounts a downloaded addon on
-/// the next server start, so waiting for a download in a running server would
-/// not make the models usable anyway; the server owner restarts the server
-/// after the download finished and the next sync picks the addon up.
-/// </para>
-/// <para>
-/// The CLI has to sit next to the plugin DLL: "Source2Viewer-CLI.exe" on
-/// Windows, "Source2Viewer-CLI" (or a renamed ".exe") on Linux, together with
-/// its own dependency files (libSkiaSharp, spirv-cross). The old
-/// "cli-windows-x64/" and "cli-linux-x64/" folders are still read as a
-/// fallback. Without the CLI the sync stays off.
-/// </para>
-/// <para>
-/// The sync only runs when the server owner configured something to read:
-/// either the workshop ids of the addons that hold character models or the
-/// folders to scan. An empty configuration leaves the catalogue alone instead
-/// of scanning every addon of the server on its own.
-/// </para>
-/// </remarks>
 public sealed class MeshGroupCatalogueSync : IDisposable
 {
-    // The CLI and its dependency files are put next to the plugin DLL. The old
-    // sub folders are still read so existing installations keep working.
     private static readonly string[] CliCandidates =
     [
         "Source2Viewer-CLI.exe",
@@ -56,7 +22,6 @@ public sealed class MeshGroupCatalogueSync : IDisposable
     private static readonly TimeSpan ListTimeout = TimeSpan.FromSeconds(120);
     private static readonly TimeSpan DataTimeout = TimeSpan.FromSeconds(120);
 
-    // A VPK that was written this recently may still be downloading.
     private static readonly TimeSpan FreshFileWindow = TimeSpan.FromSeconds(30);
 
     private static readonly JsonSerializerOptions CatalogueOptions = new()
@@ -80,9 +45,6 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         [JsonPropertyName("file")] public string File { get; set; } = "";
     }
 
-    /// <summary>
-    /// What one pass over the addons did: the catalogues it wrote.
-    /// </summary>
     private sealed class SyncOutcome
     {
         public bool Changed { get; set; }
@@ -101,9 +63,6 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         _onCatalogueChanged = onCatalogueChanged;
     }
 
-    /// <summary>
-    /// Starts the sync in the background. Calling it again starts a new one.
-    /// </summary>
     public void Start() => _ = Task.Run(() => RunAsync(_cts.Token));
 
     public void Dispose()
@@ -111,15 +70,11 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         try { _cts.Cancel(); } catch { }
     }
 
-    // ------------------------------------------------------------------ run
-
     private async Task RunAsync(CancellationToken token)
     {
         var started = Stopwatch.StartNew();
         try
         {
-            // Nothing is scanned unless the server owner said what to read: a
-            // server that has no catalogue of its own is a valid setup.
             if (_configuredWorkshopIds.Count == 0 && _configuredRoots.Count == 0)
             {
                 LogInfo("Mesh group catalogue sync disabled: set MeshgroupCatalogueWorkshopIds or MeshgroupCatalogueVpkDirs to enable it.");
@@ -174,7 +129,6 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         }
         catch (OperationCanceledException)
         {
-            // The plugin is being unloaded, the next load starts a new sync.
         }
         catch (Exception ex)
         {
@@ -186,11 +140,6 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         }
     }
 
-    /// <summary>
-    /// One pass over the addons. Only VPKs that are completely written are read;
-    /// an addon that is still downloading is skipped and read after the next
-    /// server start.
-    /// </summary>
     private async Task<SyncOutcome> RunOnceAsync(string cli, string autoDirectory, Dictionary<string, CacheEntry> cache, bool scanAll, bool logMissing, CancellationToken token)
     {
         var outcome = new SyncOutcome();
@@ -280,9 +229,6 @@ public sealed class MeshGroupCatalogueSync : IDisposable
             }
         }
 
-        // Forget the catalogue files of addons that are not on the server any
-        // more. With configured workshop ids every other addon is left alone,
-        // its catalogue may still be wanted.
         if (scanAll)
         {
             foreach (var path in cache.Keys.Where(p => !known.Contains(p)).ToList())
@@ -310,11 +256,6 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         return outcome;
     }
 
-    /// <summary>
-    /// True when the VPK of an addon is completely written. A file the addon
-    /// manager is still downloading is not read: its chunks are still growing
-    /// and the CLI would only see half a VPK.
-    /// </summary>
     public static bool IsFileReady(string dirVpkPath)
     {
         try
@@ -343,19 +284,6 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         }
     }
 
-    // -------------------------------------------------------------- the CLI
-
-    /// <summary>
-    /// The Source2Viewer CLI that reads the VPKs, or null when the server owner
-    /// did not put one next to the plugin DLL.
-    /// </summary>
-    /// <remarks>
-    /// The Windows build is "Source2Viewer-CLI.exe" next to the plugin DLL. A
-    /// Linux server uses the Linux build at the same place, named either
-    /// "Source2Viewer-CLI" or "Source2Viewer-CLI.exe"; the OS does not care about
-    /// the extension. The old "cli-windows-x64/" and "cli-linux-x64/" folders are
-    /// still used as a fallback for existing installations.
-    /// </remarks>
     public static string? FindCli(string moduleDirectory)
     {
         if (string.IsNullOrEmpty(moduleDirectory)) return null;
@@ -367,10 +295,6 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         return null;
     }
 
-    /// <summary>
-    /// Warns when a file the Windows CLI loads next to itself is missing. The
-    /// Linux build brings its own ".so" files, their names are not checked here.
-    /// </summary>
     private void CheckCliDependencies(string cli)
     {
         if (!OperatingSystem.IsWindows()) return;
@@ -420,8 +344,6 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         };
         if (!OperatingSystem.IsWindows())
         {
-            // The Linux build loads libSkiaSharp.so / spirv-cross next to the
-            // binary; make sure the dynamic loader finds them there as well.
             var folder = Path.GetDirectoryName(cli)!;
             var existing = info.Environment.TryGetValue("LD_LIBRARY_PATH", out var value) ? value : null;
             info.Environment["LD_LIBRARY_PATH"] = string.IsNullOrEmpty(existing) ? folder : folder + ":" + existing;
@@ -453,16 +375,6 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         return text;
     }
 
-    // ------------------------------------------------------------- the VPKs
-
-    /// <summary>
-    /// The VPK of one addon of the configuration, found by its workshop id
-    /// under one of the addon roots, or null when the addon is not there.
-    /// </summary>
-    /// <remarks>
-    /// A current addon is a multi-chunk VPK with a "&lt;id&gt;_dir.vpk" entry, an
-    /// addon of an older version is one "&lt;id&gt;.vpk" file.
-    /// </remarks>
     public static string? FindAddonVpk(string workshopId, IEnumerable<string> roots)
     {
         var id = workshopId.Trim();
@@ -490,17 +402,11 @@ public sealed class MeshGroupCatalogueSync : IDisposable
             }
             catch
             {
-                // A root that cannot be read is tried no further, the next one may work.
             }
         }
         return null;
     }
 
-    /// <summary>
-    /// True for the file of an addon of an older version, which is one
-    /// "&lt;workshop id&gt;.vpk" instead of the multi-chunk
-    /// "&lt;id&gt;_dir.vpk" + "&lt;id&gt;_000.vpk" files.
-    /// </summary>
     private static bool IsLegacyAddonVpk(string path)
     {
         var name = Path.GetFileNameWithoutExtension(path);
@@ -517,12 +423,6 @@ public sealed class MeshGroupCatalogueSync : IDisposable
             : name;
     }
 
-    /// <summary>
-    /// The VPKs of the addons the server owner wrote down, no folder is
-    /// scanned for them. The ids that are not on the server yet are returned in
-    /// <paramref name="missing"/>; they are skipped and read after the next
-    /// server start.
-    /// </summary>
     private List<(string Path, string Name)> ResolveConfiguredAddons(List<string> roots, bool logMissing, out List<string> missing)
     {
         var result = new List<(string Path, string Name)>();
@@ -548,10 +448,6 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         return result;
     }
 
-    /// <summary>
-    /// Every addon VPK of the addon folders, used when the server owner did not
-    /// write the workshop ids down.
-    /// </summary>
     private List<(string Path, string Name)> FindVpks(List<string> roots)
     {
         var result = new List<(string Path, string Name)>();
@@ -563,8 +459,6 @@ public sealed class MeshGroupCatalogueSync : IDisposable
             {
                 foreach (var path in Directory.EnumerateFiles(root, "*.vpk", SearchOption.AllDirectories))
                 {
-                    // The multi-chunk VPKs have a "_dir" entry, the chunks next
-                    // to it are no addons. Older addons are one "<id>.vpk".
                     var name = Path.GetFileName(path);
                     if (!name.EndsWith("_dir.vpk", StringComparison.OrdinalIgnoreCase) && !IsLegacyAddonVpk(path))
                     {
@@ -584,17 +478,6 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         return result;
     }
 
-    /// <summary>
-    /// The folders the VPK files of the addons are searched in. The folders of
-    /// the configuration are used as they are; without them the known workshop
-    /// content locations are tried to find the configured workshop ids.
-    /// </summary>
-    /// <remarks>
-    /// MultiAddonManager builds the addon path from the engine search path
-    /// "EXECUTABLE_PATH" (the folder of the game executable) plus
-    /// "steamapps/workshop/content/730", so on Windows that is
-    /// game/bin/win64 and on Linux game/bin/linuxsteamrt64.
-    /// </remarks>
     private List<string> ResolveRoots()
     {
         var roots = new List<string>();
@@ -611,30 +494,16 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         return roots;
     }
 
-    /// <summary>
-    /// The known workshop content locations of a server, in the order they are
-    /// tried to find a configured workshop id.
-    /// </summary>
-    /// <remarks>
-    /// The first one is the folder of the game executable, which is what
-    /// MultiAddonManager uses on both platforms. The others are worked out from
-    /// the plugin folder and the game directory in case the process is not the
-    /// game executable.
-    /// </remarks>
     public static List<string> CandidateRoots(string moduleDirectory, string gameDirectory)
     {
         var roots = new List<string>();
 
-        // The workshop content is stored next to the game executable, which is
-        // the value MultiAddonManager uses.
         var executableDirectory = Path.GetDirectoryName(Environment.ProcessPath);
         if (!string.IsNullOrEmpty(executableDirectory))
         {
             AddRoot(roots, Path.Join(executableDirectory, "steamapps/workshop/content/730"));
         }
 
-        // ...and the same location worked out from the plugin folder for both
-        // platforms, in case the process path is not the game executable.
         var game = gameDirectory;
         var gameRoot = Path.Join(moduleDirectory, "../../../../.."); // <install>/game
         foreach (var platform in new[] { "win64", "linuxsteamrt64" })
@@ -653,16 +522,13 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         }
         catch
         {
-            // The bin folder is allowed not to exist, the other roots may work.
         }
 
-        // Layouts where the steamapps folder sits at the game or install root.
         AddRoot(roots, Path.Join(moduleDirectory, "../../../../../../steamapps/workshop/content/730"));
         AddRoot(roots, Path.Join(game, "steamapps/workshop/content/730"));
         AddRoot(roots, Path.Join(game, "../steamapps/workshop/content/730"));
         AddRoot(roots, Path.Join(game, "csgo/steamapps/workshop/content/730"));
 
-        // The workshop is stored relative to the working directory as well.
         AddRoot(roots, Path.Join(Environment.CurrentDirectory, "steamapps/workshop/content/730"));
 
         return roots;
@@ -681,11 +547,8 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         }
         catch
         {
-            // A path that cannot be normalized is skipped.
         }
     }
-
-    // ------------------------------------------------------------- the files
 
     private static string SafeName(string name)
     {
@@ -717,7 +580,6 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         }
         catch
         {
-            // A file that cannot be removed is left alone, it is replaced next time.
         }
     }
 
@@ -744,11 +606,8 @@ public sealed class MeshGroupCatalogueSync : IDisposable
         }
         catch
         {
-            // Without a cache the next start extracts again, nothing breaks.
         }
     }
-
-    // --------------------------------------------------------------- logging
 
     private void LogInfo(string message)
     {

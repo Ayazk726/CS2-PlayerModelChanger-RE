@@ -2,20 +2,8 @@ using System.Text.RegularExpressions;
 
 namespace PlayerModelChanger;
 
-/// <summary>
-/// Turns the DATA block of a compiled model into the catalogue entry the plugin
-/// uses: m_meshGroups holds the families and their variants, and
-/// m_nDefaultMeshGroupMask says which of them the model is worn with.
-/// </summary>
-/// <remarks>
-/// It is the C# counterpart of tools/build_meshgroups.py and the two have to
-/// stay in step: the same families are locked and the same labels are built.
-/// </remarks>
 public static class MeshGroupCatalogueBuilder
 {
-    /// <summary>
-    /// The families the player may not change.
-    /// </summary>
     public static readonly string[] LockedPrefixes = ["first_or_third_person", "face"];
     public static readonly string[] LockedExact = ["autodefault", "defusekit"];
 
@@ -23,27 +11,18 @@ public static class MeshGroupCatalogueBuilder
         @"^(\S+)\s+crc=0x[0-9a-f]+\s+metadatasz=\d+\s+fnumber=\d+\s+ofs=0x[0-9a-f]+\s+sz=\d+$",
         RegexOptions.Compiled);
 
-    /// <summary>
-    /// The family of a mesh group: everything in front of the "@".
-    /// </summary>
     public static string FamilyOf(string group)
     {
         var i = group.IndexOf("_@", StringComparison.Ordinal);
         return i > 0 ? group[..i] : group;
     }
 
-    /// <summary>
-    /// The name the model gave the mesh group: everything behind the "#&amp;".
-    /// </summary>
     public static string VariantOf(string group)
     {
         var i = group.IndexOf("_#&", StringComparison.Ordinal);
         return i > 0 ? group[(i + 3)..] : "";
     }
 
-    /// <summary>
-    /// True when the family stays on the value of the model by default.
-    /// </summary>
     public static bool IsLocked(string family)
     {
         var f = family.ToLowerInvariant();
@@ -54,10 +33,6 @@ public static class MeshGroupCatalogueBuilder
         return LockedPrefixes.Any(prefix => f.StartsWith(prefix, StringComparison.Ordinal));
     }
 
-    /// <summary>
-    /// Reads m_meshGroups and m_nDefaultMeshGroupMask out of the DATA block the
-    /// CLI printed for a model.
-    /// </summary>
     public static (List<string> Groups, ulong? DefaultMask) ParseDataBlock(string text)
     {
         var groups = new List<string>();
@@ -98,10 +73,6 @@ public static class MeshGroupCatalogueBuilder
         return (groups, defaultMask);
     }
 
-    /// <summary>
-    /// The models of the VPK listing the CLI printed: the character models a
-    /// catalogue can be built for.
-    /// </summary>
     public static List<string> ParseModelList(string text)
     {
         var models = new List<string>();
@@ -119,9 +90,6 @@ public static class MeshGroupCatalogueBuilder
         return models;
     }
 
-    /// <summary>
-    /// Builds the catalogue entry of one model out of its mesh groups.
-    /// </summary>
     public static MeshGroupModel BuildModel(IReadOnlyList<string> groups, ulong defaultMask)
     {
         var families = new List<string>();

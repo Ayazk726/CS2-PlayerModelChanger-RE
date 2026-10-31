@@ -3,54 +3,18 @@ using Microsoft.Extensions.Logging;
 
 namespace PlayerModelChanger;
 
-/// <summary>
-/// The mesh groups the player may change, per model.
-/// </summary>
-/// <remarks>
-/// The file belongs to the server owner: for every model of
-/// PlayerModelChanger.json it holds every family of mesh groups of that model
-/// and whether the player may change it.
-/// <para>
-/// The model is named the way it is named in PlayerModelChanger.json, and a
-/// family is named the way the model names it ("Ears", "defusekit", ...). All
-/// the mesh groups of a family share the one entry, so the server owner turns
-/// the whole family on or off at once and never has to write the raw names of
-/// the model ("Ears_@0_#&amp;1", ...) down.
-/// </para>
-/// <para>
-/// A family that is off keeps the value the model was made with, the player
-/// cannot change it. The families that belong to the model itself (the view it
-/// is drawn in, the face and the defuse kit of the character) are off by
-/// default.
-/// </para>
-/// </remarks>
 public class MeshGroupConfig
 {
-    /// <summary>
-    /// The directory of the files the server owner edits, next to
-    /// PlayerModelChanger.json.
-    /// </summary>
     public static string DirectoryPath(string moduleDirectory)
         => Path.Join(moduleDirectory, "../../configs/plugins/PlayerModelChanger-RE");
 
-    /// <summary>
-    /// The path of the file, next to PlayerModelChanger.json.
-    /// </summary>
     public static string FilePath(string moduleDirectory)
         => Path.Join(DirectoryPath(moduleDirectory), "MeshGroups.json");
 
-    // model name -> mesh group family -> the player may change it
     private readonly Dictionary<string, Dictionary<string, bool>> _entries = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// The number of models the server owner wrote down.
-    /// </summary>
     public int Count => _entries.Count;
 
-    /// <summary>
-    /// Reads the file of the server owner. A file that cannot be read is left
-    /// alone, the defaults of the catalogue are used until it is fixed.
-    /// </summary>
     public static MeshGroupConfig Load(string moduleDirectory, ILogger? logger)
     {
         var config = new MeshGroupConfig();
@@ -86,13 +50,6 @@ public class MeshGroupConfig
         return config;
     }
 
-    /// <summary>
-    /// True when the player may change the mesh groups of the family.
-    /// </summary>
-    /// <param name="fallback">
-    /// The value of the catalogue, used when the server owner did not write
-    /// the family down.
-    /// </param>
     public bool IsEnabled(string modelName, string family, bool fallback)
     {
         if (!_entries.TryGetValue(modelName.Trim(), out var groups))
@@ -102,14 +59,6 @@ public class MeshGroupConfig
         return groups.TryGetValue(family, out var enabled) ? enabled : fallback;
     }
 
-    /// <summary>
-    /// Writes the file with the mesh groups of the models of the
-    /// configuration. The choice of the server owner is kept, a family that is
-    /// new gets the value of the catalogue.
-    /// </summary>
-    /// <returns>
-    /// True when the file was written.
-    /// </returns>
     public static bool Write(string moduleDirectory, IEnumerable<Model> models, MeshGroupConfig config, ILogger? logger)
     {
         if (string.IsNullOrEmpty(moduleDirectory))
@@ -141,7 +90,6 @@ public class MeshGroupConfig
         var path = FilePath(moduleDirectory);
         try
         {
-            // Nothing to do when the file already says the same.
             if (File.Exists(path))
             {
                 try
@@ -154,7 +102,6 @@ public class MeshGroupConfig
                 }
                 catch
                 {
-                    // A file that cannot be read is written again below.
                 }
             }
 
@@ -166,9 +113,6 @@ public class MeshGroupConfig
             var content = JsonSerializer.Serialize(entries, new JsonSerializerOptions
             {
                 WriteIndented = true,
-                // The names of the mesh groups hold characters that would be
-                // escaped otherwise, the file belongs to the server owner and
-                // has to stay readable.
                 Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
             });
             File.WriteAllText(path, content);

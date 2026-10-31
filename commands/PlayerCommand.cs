@@ -47,8 +47,6 @@ public partial class PlayerModelChanger
             }
         }
 
-        // The optional side argument picks which side gets the model, "all" by
-        // default.
         var side = Side.All;
         if (commandInfo.ArgCount > 2)
         {
@@ -87,8 +85,6 @@ public partial class PlayerModelChanger
             return;
         }
 
-        // "!md <side>" opens the model list of that side directly, without the
-        // side picker of the root menu.
         if (commandInfo.ArgCount > 1)
         {
             var side = commandInfo.GetArg(1).ToSide();

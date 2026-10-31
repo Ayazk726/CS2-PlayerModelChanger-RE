@@ -180,9 +180,6 @@ public class Utils
         var Localizer = PlayerModelChanger.getInstance().Localizer;
         try
         {
-            // CS# 1.0.374's JsonResourceManager doesn't auto-load our lang/*.json files
-            // into its cache until somebody asks. Reach in via reflection, force-load
-            // each culture we ship, then sweep %pmc_prefix% into the colored prefix.
             var localizerField = Localizer.GetType().GetField("_localizer", BindingFlags.Instance | BindingFlags.NonPublic);
             if (localizerField == null) return;
             var inner = localizerField.GetValue(Localizer)!;
@@ -197,13 +194,9 @@ public class Utils
             {
                 tryLoadResourceSet.Invoke(rm, [culture]);
             }
-            // Force lazy init via a probe key.
             rm.GetType().GetMethod("GetString", BindingFlags.Public | BindingFlags.Instance, null, [typeof(string)], null)
                 ?.Invoke(rm, ["command.model.success"]);
 
-            // CS# players commonly report zh-CN; MS .NET treats zh-CN / zh-Hans / zh as separate cultures,
-            // so zh-CN players won't fall back to zh-Hans on their own. Mirror the zh-Hans dictionary
-            // into the empty zh-CN / zh slots so any Chinese locale resolves correctly.
             var cache = (System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Concurrent.ConcurrentDictionary<string, string>>)resourcesCacheField.GetValue(rm)!;
             if (cache.TryGetValue("zh-Hans", out var hans))
             {
@@ -216,8 +209,6 @@ public class Utils
                 foreach (var key in caches.Value.Keys)
                 {
                     var coloredPrefix = "[{red}PlayerModelChanger-RE{default}] ";
-                    // The localizer cache may already contain the older green
-                    // prefix after a plugin hot-reload, so replace both forms.
                     caches.Value[key] = caches.Value[key]
                         .Replace("%pmc_prefix%", coloredPrefix)
                         .Replace("[{green}PlayerModelChanger-RE{default}] ", coloredPrefix);
@@ -231,13 +222,6 @@ public class Utils
         }
     }
 
-    /// <summary>
-    /// A message of the language file.
-    /// </summary>
-    /// <remarks>
-    /// A language file that does not fit the arguments of a message would break
-    /// the command it belongs to, so the message is shown as it is in that case.
-    /// </remarks>
     public static string Message(IStringLocalizer localizer, string key, params object[] args)
     {
         try

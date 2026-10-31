@@ -6,44 +6,23 @@ using Cs2Menus;
 
 namespace PlayerModelChanger;
 
-/// <summary>
-/// Finds the mm-cs2menus native binary and hands it to the CSS bridge.
-///
-/// The bridge's own <c>LoadDefault()</c> resolves the binary from
-/// <c>Server.GameDirectory</c> and assumes that folder is the <c>csgo/</c> one.
-/// CounterStrikeSharp reports the parent <c>game/</c> directory instead, so that
-/// lookup misses the file and the bridge never loads - every menu command then
-/// degrades to "unavailable".
-///
-/// This resolves the binary over a set of roots instead: the game directory, the
-/// plugin's own directory and their parents, each with and without a <c>csgo/</c>
-/// folder in it. That covers both layouts and any custom install path.
-/// </summary>
 internal static class Cs2MenusBootstrap
 {
     private const string PluginName = "cs2menus";
 
-    /// <summary>How many parent folders above a root are probed.</summary>
     private const int MaxDepth = 6;
 
     public sealed class Result
     {
-        /// <summary>True when the native library was loaded and the bridge can use it.</summary>
         public bool Loaded { get; init; }
 
-        /// <summary>The absolute path of the binary that was loaded.</summary>
         public string? Path { get; init; }
 
-        /// <summary>Why the load failed, when it did.</summary>
         public string? Error { get; init; }
 
-        /// <summary>The paths that were probed, for the log.</summary>
         public IReadOnlyList<string> Probed { get; init; } = Array.Empty<string>();
     }
 
-    /// <summary>
-    /// The folder cs2menus installs its binary into, relative to a csgo root.
-    /// </summary>
     public static string BinaryRelativePath()
     {
         string platform;
@@ -68,10 +47,6 @@ internal static class Cs2MenusBootstrap
         return Path.Combine("addons", PluginName, "bin", platform, PluginName + ext);
     }
 
-    /// <summary>
-    /// Load the cs2menus binary found under one of <paramref name="roots"/>.
-    /// The first candidate that loads wins.
-    /// </summary>
     public static Result Load(IEnumerable<string> roots)
     {
         string relative = BinaryRelativePath();
@@ -126,10 +101,6 @@ internal static class Cs2MenusBootstrap
         };
     }
 
-    /// <summary>
-    /// The directories to probe for the csgo root: the given root and its parents,
-    /// each with and without a "csgo" folder in it.
-    /// </summary>
     private static IEnumerable<string> EnumerateSearchDirs(string? root)
     {
         if (string.IsNullOrWhiteSpace(root))
@@ -144,7 +115,6 @@ internal static class Cs2MenusBootstrap
         }
         catch (Exception)
         {
-            // An unusable path, nothing to probe from it.
         }
 
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

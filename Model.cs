@@ -18,11 +18,6 @@ public class Model
     [JsonPropertyName("fixedmeshgroups")] public Dictionary<int, int> FixedMeshgroups { get; set; } = [];
     [JsonPropertyName("meshgroups")] public Dictionary<string, dynamic> Meshgroups { get; set; } = new();
 
-    /// <summary>
-    /// The mask the mesh groups of the model are worn with by default. It is
-    /// filled in by the mesh group catalogue, a model that is not in the
-    /// catalogue has no value here.
-    /// </summary>
     [JsonIgnore] public ulong? DefaultMeshgroupMask { get; set; }
 
     [JsonPropertyName("fixedskin")]
