@@ -15,7 +15,7 @@ namespace PlayerModelChanger;
 public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
 {
     public override string ModuleName => "PlayerModelChanger-RE";
-    public override string ModuleVersion => "0.0.2";
+    public override string ModuleVersion => "0.2.0";
 
     public override string ModuleAuthor => "Amaryo";
     public required ModelConfig Config { get; set; }
