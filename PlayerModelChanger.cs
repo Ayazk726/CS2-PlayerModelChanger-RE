@@ -15,7 +15,7 @@ namespace PlayerModelChanger;
 public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
 {
     public override string ModuleName => "PlayerModelChanger-RE";
-    public override string ModuleVersion => "0.2.0";
+    public override string ModuleVersion => "0.2.1-halftime-test";
 
     public override string ModuleAuthor => "Amaryo";
     public required ModelConfig Config { get; set; }
@@ -40,12 +40,6 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
     private MeshGroupCatalogueSync? _catalogueSync;
 
     private int _catalogueRefreshPending;
-
-    private readonly ConcurrentDictionary<string, string> _botModelIndex = new();
-
-    private const string NoBotModel = "@no-bot-model";
-
-    private bool _freezeBotModelsUntilMapStart;
 
     public bool Enable = true;
 
@@ -102,17 +96,11 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
         RegisterListener<Listeners.OnTick>(OnTick);
         RegisterListener<Listeners.OnMapStart>(OnMapStart);
         Inspection.InspectionEnded += OnInspectionEnded;
-        RegisterListener<Listeners.OnMapEnd>(() =>
-        {
-            Service.ClearMapDefaultModel();
-            _botModelIndex.Clear();
-        });
-
-        _freezeBotModelsUntilMapStart = hotReload;
+        RegisterListener<Listeners.OnMapEnd>(OnMapEnd);
+        ResetBotModels(!hotReload);
         if (hotReload)
         {
-            CacheCurrentBotModels();
-            Logger.LogInformation("[PlayerModelChanger] Bots keep their current model until the next map change.");
+            Logger.LogInformation("[PlayerModelChanger] Bot models will be applied again on the next map.");
         }
 
         Utils.InitializeLangPrefix();
@@ -213,6 +201,8 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
         RemoveListener<Listeners.OnServerPrecacheResources>(PrecacheResource);
         RemoveListener<Listeners.OnTick>(OnTick);
         RemoveListener<Listeners.OnMapStart>(OnMapStart);
+        RemoveListener<Listeners.OnMapEnd>(OnMapEnd);
+        ResetBotModels(false);
         Inspection.InspectionEnded -= OnInspectionEnded;
         _hiddenMenus.Clear();
         _sideMenus.Clear();
@@ -318,6 +308,7 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
 
     public void OnTick()
     {
+        ApplyPendingBotModels();
         if (Interlocked.Exchange(ref _catalogueRefreshPending, 0) == 1)
         {
             RefreshMeshGroupsFromCatalogue();
@@ -330,25 +321,13 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
 
     private void OnMapStart(string mapName)
     {
-        _freezeBotModelsUntilMapStart = false;
+        ResetBotModels(true);
     }
 
-    private void CacheCurrentBotModels()
+    private void OnMapEnd()
     {
-        foreach (var bot in Utilities.GetPlayers())
-        {
-            if (!bot.IsValid || !bot.IsBot) continue;
-            var pawn = bot.Pawn.Value;
-            if (pawn == null || !pawn.IsValid) continue;
-            var modelName = pawn.CBodyComponent?.SceneNode?.GetSkeletonInstance().ModelState.ModelName;
-            if (string.IsNullOrEmpty(modelName)) continue;
-
-            var model = Service.GetAllModels().FirstOrDefault(candidate =>
-                string.Equals(candidate.Path, modelName, StringComparison.OrdinalIgnoreCase));
-            if (model == null) continue;
-
-            _botModelIndex[BotKey(bot)] = model.Index;
-        }
+        Service.ClearMapDefaultModel();
+        ResetBotModels(false);
     }
 
     private void HideMenuWhileInspecting(CCSPlayerController player)
@@ -467,60 +446,7 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
 
             if (player.IsBot)
             {
-                var botKey = BotKey(player);
-
-                if (_freezeBotModelsUntilMapStart)
-                {
-                    if (_botModelIndex.TryGetValue(botKey, out var frozenIndex))
-                    {
-                        var frozenModel = Service.GetModel(frozenIndex);
-                        if (frozenModel != null)
-                        {
-                            SetBotModelNextServerFrame(player, frozenModel);
-                        }
-                    }
-                    return HookResult.Continue;
-                }
-
-                if (_botModelIndex.TryGetValue(botKey, out var chosenIndex))
-                {
-                    if (chosenIndex == NoBotModel)
-                    {
-                        return HookResult.Continue;
-                    }
-                    var chosenModel = Service.GetModel(chosenIndex);
-                    if (chosenModel != null)
-                    {
-                        SetBotModelNextServerFrame(player, chosenModel);
-                        return HookResult.Continue;
-                    }
-                    _botModelIndex.TryRemove(botKey, out _);
-                }
-
-                var modelindex = PickBotModelIndex(player, team);
-                if (modelindex == null)
-                {
-                    _botModelIndex[botKey] = NoBotModel;
-                    return HookResult.Continue;
-                }
-
-                var botmodel = Service.GetModel(modelindex);
-                if (botmodel == null)
-                {
-                    _botModelIndex.TryRemove(botKey, out _);
-                    Server.NextFrame(() =>
-                    {
-                        if (player.IsValid && player.Pawn.Value != null)
-                        {
-                            var originalRender = player.Pawn.Value.Render;
-                            player.Pawn.Value.Render = Color.FromArgb(255, originalRender.R, originalRender.G, originalRender.B);
-                        }
-                    });
-                    return HookResult.Continue;
-                }
-
-                _botModelIndex[botKey] = modelindex;
-                SetBotModelNextServerFrame(player, botmodel);
+                QueueBotModelForSpawn(player, team);
                 return HookResult.Continue;
             }
 
@@ -583,66 +509,6 @@ public partial class PlayerModelChanger : BasePlugin, IPluginConfig<ModelConfig>
         }
 
         return HookResult.Continue;
-    }
-
-    private static string BotKey(CCSPlayerController player)
-        => (player.SteamID != 0 ? player.SteamID : (ulong)(player.Slot + 1)).ToString();
-
-    private string? PickBotModelIndex(CCSPlayerController player, CsTeam team)
-    {
-        var entries = team == CsTeam.Terrorist ? Config.ModelForBots.T : Config.ModelForBots.CT;
-        if (entries.Count == 0) return null;
-
-        var valid = entries.Where(entry => entry == "@random" || Service.GetModel(entry) != null).ToList();
-        if (valid.Count == 0) return null;
-
-        var modelindex = valid[Random.Shared.Next(valid.Count)];
-        if (modelindex == "@random")
-        {
-            var models = Service.GetAllModels();
-            if (models.Count == 0) return null;
-            modelindex = models[Random.Shared.Next(models.Count)].Index;
-        }
-
-        return modelindex;
-    }
-
-    private void SetBotModelNextServerFrame(CCSPlayerController player, Model model)
-    {
-        Server.NextFrame(() =>
-        {
-            if (!player.IsValid || player.Pawn.Value == null || !player.Pawn.Value.IsValid)
-            {
-                return;
-            }
-
-            var pawn = player.Pawn.Value;
-            var originalRender = pawn.Render;
-
-            pawn.SetModel(model.Path);
-            pawn.Render = Color.FromArgb(model.Disableleg ? 254 : 255, originalRender.R, originalRender.G, originalRender.B);
-            Utilities.SetStateChanged(pawn, "CBaseModelEntity", "m_clrRender");
-
-            if (model.FixedSkin >= 0)
-            {
-                pawn.AcceptInput("Skin", pawn, pawn, model.FixedSkin.ToString());
-            }
-
-            var defaultMask = model.DefaultMeshgroupMask;
-            if (defaultMask.HasValue && defaultMask.Value != 0)
-            {
-                var sceneNode = pawn.CBodyComponent?.SceneNode;
-                if (sceneNode != null)
-                {
-                    var skeleton = sceneNode.GetSkeletonInstance();
-                    if (skeleton.ModelState.MeshGroupMask != defaultMask.Value)
-                    {
-                        skeleton.ModelState.MeshGroupMask = defaultMask.Value;
-                        Utilities.SetStateChanged(pawn, "CBaseEntity", "m_CBodyComponent");
-                    }
-                }
-            }
-        });
     }
 
     public Task SetModelNextServerFrame(CCSPlayerController player, Model? model, bool disableleg)
